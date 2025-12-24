@@ -1,0 +1,107 @@
+Crie um micro-SaaS chamado Fleek, voltado para restaurantes e pequenos negócios coletarem feedback de clientes via QR Code.
+
+O projeto deve ser uma aplicação web completa, simples e funcional, com as seguintes características:
+
+Objetivo do produto
+
+Permitir que um dono de restaurante:
+
+Crie uma conta (login e registro)
+
+Tenha um formulário de feedback padrão
+
+Gere um QR Code único para seu negócio
+
+Colete respostas dos clientes
+
+Visualize métricas em um dashboard simples
+
+Stack sugerida
+
+Frontend: HTML, CSS e JavaScript (layout moderno, limpo, responsivo)
+
+Backend: Node.js com Express
+
+Banco de dados: SQLite ou PostgreSQL (estrutura simples)
+
+Autenticação: e-mail e senha
+
+Tudo deve rodar localmente no Replit
+
+Funcionalidades obrigatórias
+
+Landing Page
+
+Explica o que é o Fleek
+
+Benefícios do feedback via QR Code
+
+Botões: “Criar conta” e “Entrar”
+
+Autenticação
+
+Página de registro (nome do negócio, e-mail, senha)
+
+Página de login
+
+Proteção de rotas (usuário só acessa dashboard se estiver logado)
+
+Formulário de Feedback (padrão para todos)
+
+Pergunta 1: “Como foi sua experiência geral?” (nota de 1 a 5)
+
+Pergunta 2: “Você recomendaria nosso restaurante?” (nota de 0 a 10 – estilo NPS)
+
+Pergunta 3: “O que podemos melhorar?” (campo de texto opcional)
+
+O cliente não precisa fazer login para responder
+
+QR Code
+
+Cada negócio tem um QR Code único
+
+O QR Code leva diretamente ao formulário público
+
+Possibilidade de baixar o QR Code em PNG
+
+Dashboard do dono
+
+Total de respostas
+
+Média da nota geral
+
+NPS calculado automaticamente
+
+Lista dos últimos feedbacks escritos
+
+Visual simples (cards e gráficos básicos)
+
+Estrutura do projeto
+
+Organização clara de pastas (routes, views, public, database)
+
+Comentários no código explicando cada parte
+
+README explicando como rodar o projeto
+
+Requisitos de design
+
+Interface minimalista
+
+Estilo SaaS moderno
+
+Cores neutras (preto, branco, cinza, verde suave)
+
+Tipografia simples e legível
+
+Regras importantes
+
+Não usar APIs pagas
+
+Não usar ferramentas externas complexas
+
+Priorizar simplicidade e clareza
+
+Código deve ser fácil de entender e modificar
+
+O resultado deve ser um MVP funcional, pronto para testes e validação com restaurantes reais.
