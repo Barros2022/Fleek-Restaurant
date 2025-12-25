@@ -136,8 +136,8 @@ export default function Dashboard() {
                   title="NPS Score" 
                   value={stats?.npsScore || 0}
                   icon={<BarChart3 className="w-5 h-5" />}
-                  trend={stats?.npsScore > 0 ? "Bom" : "Pode Melhorar"}
-                  trendUp={stats?.npsScore > 50}
+                  trend={stats && stats.npsScore > 0 ? "Good" : "Needs Work"}
+                  trendUp={stats && stats.npsScore > 50}
                   delay={0}
                 />
                 <StatCard 

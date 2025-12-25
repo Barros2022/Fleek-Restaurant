@@ -42,7 +42,7 @@ export async function registerRoutes(
   });
 
   app.post(api.auth.login.path, (req, res, next) => {
-    const passportLogin = passport.authenticate("local", (err, user, info) => {
+    const passportLogin = passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: "Invalid credentials" });
       req.login(user, (err) => {
@@ -80,14 +80,14 @@ export async function registerRoutes(
   // Stats
   app.get(api.feedbacks.stats.path, requireAuth, async (req, res) => {
     const days = req.query.days ? parseInt(req.query.days as string) : undefined;
-    const stats = await storage.getStats(req.user!.id, days);
+    const stats = await storage.getStats((req.user as any).id, days);
     res.json(stats);
   });
 
   // List Feedbacks
   app.get(api.feedbacks.list.path, requireAuth, async (req, res) => {
     const days = req.query.days ? parseInt(req.query.days as string) : undefined;
-    const feedbacks = await storage.getFeedbacks(req.user!.id, days);
+    const feedbacks = await storage.getFeedbacks((req.user as any).id, days);
     res.json(feedbacks);
   });
 
