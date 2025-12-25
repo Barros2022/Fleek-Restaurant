@@ -6,12 +6,24 @@ interface StatCardProps {
   value: string | number;
   icon: React.ReactNode;
   delay?: number;
-  trend?: "Bom" | "Pode Melhorar" | "Excelente" | "Ruim";
-  trendUp?: boolean;
+  trend?: "Excelente" | "Regular" | "Ruim";
   subtext?: string;
 }
 
-export function StatCard({ title, value, icon, delay = 0, trend, trendUp, subtext }: StatCardProps) {
+export function StatCard({ title, value, icon, delay = 0, trend, subtext }: StatCardProps) {
+  const getTrendStyles = () => {
+    switch (trend) {
+      case "Excelente":
+        return "bg-green-50 text-green-700";
+      case "Regular":
+        return "bg-yellow-50 text-yellow-700";
+      case "Ruim":
+        return "bg-red-50 text-red-700";
+      default:
+        return "";
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -24,12 +36,7 @@ export function StatCard({ title, value, icon, delay = 0, trend, trendUp, subtex
           {icon}
         </div>
         {trend && (
-          <div className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${
-            trendUp 
-              ? "bg-green-50 text-green-700" 
-              : "bg-red-50 text-red-700"
-          }`}>
-            {trendUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+          <div className={`flex items-center gap-1 text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-full ${getTrendStyles()}`}>
             {trend}
           </div>
         )}
