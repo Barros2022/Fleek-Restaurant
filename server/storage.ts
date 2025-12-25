@@ -9,7 +9,14 @@ export interface IStorage {
 
   createFeedback(feedback: InsertFeedback): Promise<Feedback>;
   getFeedbacks(userId: number): Promise<Feedback[]>;
-  getStats(userId: number): Promise<{ totalFeedbacks: number, averageRating: number, npsScore: number }>;
+  getStats(userId: number): Promise<{ 
+    totalFeedbacks: number, 
+    npsScore: number,
+    avgFood: number,
+    avgService: number,
+    avgWaitTime: number,
+    avgAmbiance: number
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -40,23 +47,46 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(feedbacks.createdAt));
   }
 
-  async getStats(userId: number): Promise<{ totalFeedbacks: number, averageRating: number, npsScore: number }> {
+  async getStats(userId: number): Promise<{ 
+    totalFeedbacks: number, 
+    npsScore: number,
+    avgFood: number,
+    avgService: number,
+    avgWaitTime: number,
+    avgAmbiance: number
+  }> {
     const result = await db.select().from(feedbacks).where(eq(feedbacks.userId, userId));
     const total = result.length;
-    if (total === 0) return { totalFeedbacks: 0, averageRating: 0, npsScore: 0 };
+    
+    if (total === 0) {
+      return { 
+        totalFeedbacks: 0, 
+        npsScore: 0,
+        avgFood: 0,
+        avgService: 0,
+        avgWaitTime: 0,
+        avgAmbiance: 0
+      };
+    }
 
-    const avgRating = result.reduce((acc, curr) => acc + curr.rating, 0) / total;
-
-    // NPS Calculation: (Promoters % - Detractors %) * 100
-    // Promoters: 9-10, Passives: 7-8, Detractors: 0-6
+    // NPS Calculation
     const promoters = result.filter(f => f.npsScore >= 9).length;
     const detractors = result.filter(f => f.npsScore <= 6).length;
     const nps = ((promoters - detractors) / total) * 100;
 
+    // Averages
+    const avgFood = result.reduce((acc, curr) => acc + curr.ratingFood, 0) / total;
+    const avgService = result.reduce((acc, curr) => acc + curr.ratingService, 0) / total;
+    const avgWaitTime = result.reduce((acc, curr) => acc + curr.ratingWaitTime, 0) / total;
+    const avgAmbiance = result.reduce((acc, curr) => acc + curr.ratingAmbiance, 0) / total;
+
     return {
       totalFeedbacks: total,
-      averageRating: parseFloat(avgRating.toFixed(1)),
-      npsScore: Math.round(nps)
+      npsScore: Math.round(nps),
+      avgFood: parseFloat(avgFood.toFixed(1)),
+      avgService: parseFloat(avgService.toFixed(1)),
+      avgWaitTime: parseFloat(avgWaitTime.toFixed(1)),
+      avgAmbiance: parseFloat(avgAmbiance.toFixed(1))
     };
   }
 }

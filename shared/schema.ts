@@ -13,9 +13,25 @@ export const users = pgTable("users", {
 export const feedbacks = pgTable("feedbacks", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(), // The business this feedback is for
-  rating: integer("rating").notNull(), // 1-5
-  npsScore: integer("nps_score").notNull(), // 0-10
+  
+  // P1: NPS (0-10)
+  npsScore: integer("nps_score").notNull(), 
+  
+  // P2: Comida (1-5)
+  ratingFood: integer("rating_food").notNull().default(0),
+  
+  // P3: Atendimento (1-5)
+  ratingService: integer("rating_service").notNull().default(0),
+  
+  // P4: Tempo de espera (1-5)
+  ratingWaitTime: integer("rating_wait_time").notNull().default(0),
+  
+  // P5: Limpeza/Ambiente (1-5)
+  ratingAmbiance: integer("rating_ambiance").notNull().default(0),
+  
+  // P6: Comentário
   comment: text("comment"),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 

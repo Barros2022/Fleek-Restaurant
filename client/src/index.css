@@ -8,64 +8,47 @@
   --font-display: 'Outfit', sans-serif;
   --font-body: 'Plus Jakarta Sans', sans-serif;
 
-  /* Natural, Clean, Modern SaaS Palette */
-  /* Primary: Deep Emerald Green */
-  --primary: 158 45% 45%;
-  --primary-foreground: 0 0% 100%;
-  
-  /* Secondary: Soft Sage */
-  --secondary: 158 25% 94%;
-  --secondary-foreground: 158 45% 25%;
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
 
-  /* Backgrounds */
-  --background: 0 0% 100%;
-  --foreground: 215 19% 25%;
-  
-  /* Card/Surface */
   --card: 0 0% 100%;
-  --card-foreground: 215 19% 25%;
-  
-  /* UI Elements */
-  --muted: 220 14% 96%;
-  --muted-foreground: 220 8% 56%;
-  
-  --accent: 158 35% 90%;
-  --accent-foreground: 158 45% 25%;
-  
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
+  --card-foreground: 222 47% 11%;
 
-  --border: 220 13% 91%;
-  --input: 220 13% 91%;
-  --ring: 158 45% 45%;
-  
-  --radius: 0.75rem;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+
+  --primary: 142 71% 45%;
+  --primary-foreground: 355.7 100% 97.3%;
+
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 142 71% 45%;
 }
 
 @layer base {
   body {
-    @apply bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary;
-    font-family: var(--font-body);
+    @apply bg-background text-foreground antialiased font-body;
   }
-
+  
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-display);
-    @apply font-bold tracking-tight text-slate-900;
+    @apply font-display tracking-tight;
   }
 }
 
-@layer components {
-  .glass-panel {
-    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
-  }
-  
-  .btn-primary {
-    @apply bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all active:scale-[0.98];
-  }
-
-  .heading-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600;
-  }
+.glass-card {
+  @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-xl;
 }
 
 /* Custom scrollbar */
@@ -76,8 +59,5 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-200 rounded-full;
-}
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-300;
+  @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
 }

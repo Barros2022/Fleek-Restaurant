@@ -80,8 +80,11 @@ export const api = {
       responses: {
         200: z.object({
           totalFeedbacks: z.number(),
-          averageRating: z.number(),
           npsScore: z.number(),
+          avgFood: z.number(),
+          avgService: z.number(),
+          avgWaitTime: z.number(),
+          avgAmbiance: z.number(),
         }),
         401: errorSchemas.unauthorized,
       },

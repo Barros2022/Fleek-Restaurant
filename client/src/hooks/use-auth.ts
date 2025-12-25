@@ -6,7 +6,7 @@ export function useAuth() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const userQuery = useQuery({
+  const { data: user, isLoading } = useQuery({
     queryKey: [api.auth.user.path],
     queryFn: async () => {
       const res = await fetch(api.auth.user.path);
@@ -15,83 +15,93 @@ export function useAuth() {
       return api.auth.user.responses[200].parse(await res.json());
     },
     retry: false,
-    staleTime: Infinity,
   });
 
-  const loginMutation = useMutation({
+  const login = useMutation({
     mutationFn: async (credentials: { username: string; password: string }) => {
       const res = await fetch(api.auth.login.path, {
-        method: api.auth.login.method,
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
       });
-
+      
       if (!res.ok) {
         if (res.status === 401) {
-          throw new Error("Invalid username or password");
+          throw new Error("Credenciais inválidas");
         }
-        throw new Error("Login failed");
+        throw new Error("Falha ao entrar");
       }
+      
       return api.auth.login.responses[200].parse(await res.json());
     },
     onSuccess: (data) => {
       queryClient.setQueryData([api.auth.user.path], data);
-      toast({ title: "Welcome back!", description: `Logged in as ${data.businessName}` });
+      toast({
+        title: "Bem-vindo de volta!",
+        description: "Login realizado com sucesso.",
+      });
     },
-    onError: (error) => {
-      toast({ 
-        title: "Login failed", 
-        description: error.message, 
-        variant: "destructive" 
+    onError: (error: Error) => {
+      toast({
+        title: "Erro no login",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
 
-  const registerMutation = useMutation({
-    mutationFn: async (data: InsertUser) => {
+  const register = useMutation({
+    mutationFn: async (userData: InsertUser) => {
       const res = await fetch(api.auth.register.path, {
-        method: api.auth.register.method,
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(userData),
       });
 
       if (!res.ok) {
         if (res.status === 400) {
-          const error = api.auth.register.responses[400].parse(await res.json());
-          throw new Error(error.message);
+          const error = await res.json();
+          throw new Error(error.message || "Dados inválidos");
         }
-        throw new Error("Registration failed");
+        throw new Error("Falha ao criar conta");
       }
+
       return api.auth.register.responses[201].parse(await res.json());
     },
-    onSuccess: () => {
-      // Auto login after register logic could go here, or redirect to login
-      toast({ title: "Account created!", description: "Please log in with your credentials." });
+    onSuccess: (data) => {
+      queryClient.setQueryData([api.auth.user.path], data);
+      toast({
+        title: "Conta criada!",
+        description: "Seu cadastro foi realizado com sucesso.",
+      });
     },
-    onError: (error) => {
-      toast({ 
-        title: "Registration failed", 
-        description: error.message, 
-        variant: "destructive" 
+    onError: (error: Error) => {
+      toast({
+        title: "Erro no cadastro",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
 
-  const logoutMutation = useMutation({
+  const logout = useMutation({
     mutationFn: async () => {
-      await fetch(api.auth.logout.path, { method: api.auth.logout.method });
+      await fetch(api.auth.logout.path, { method: "POST" });
     },
     onSuccess: () => {
       queryClient.setQueryData([api.auth.user.path], null);
-      toast({ title: "Logged out", description: "See you soon!" });
+      toast({
+        title: "Até logo!",
+        description: "Você saiu da sua conta.",
+      });
     },
   });
 
   return {
-    user: userQuery.data,
-    isLoading: userQuery.isLoading,
-    login: loginMutation,
-    register: registerMutation,
-    logout: logoutMutation,
+    user,
+    isLoading,
+    login,
+    register,
+    logout,
   };
 }

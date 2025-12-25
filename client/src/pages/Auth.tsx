@@ -1,125 +1,96 @@
 import { useState } from "react";
-import { useLocation, Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { insertUserSchema } from "@shared/schema";
-import { useAuth } from "@/hooks/use-auth";
-import { Loader2, ArrowLeft, Star } from "lucide-react";
 
-// Add confirm password to schema for validation only
-const registerSchema = insertUserSchema.extend({
-  confirmPassword: z.string()
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
+const loginSchema = z.object({
+  username: z.string().min(1, "E-mail é obrigatório"),
+  password: z.string().min(1, "Senha é obrigatória"),
 });
 
-type RegisterFormData = z.infer<typeof registerSchema>;
-type LoginFormData = { username: string; password: string };
+const registerSchema = z.object({
+  businessName: z.string().min(1, "Nome do negócio é obrigatório"),
+  username: z.string().email("E-mail inválido").min(1, "E-mail é obrigatório"),
+  password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
+});
 
-export default function AuthPage({ mode = "login" }: { mode?: "login" | "register" }) {
+type LoginData = z.infer<typeof loginSchema>;
+type RegisterData = z.infer<typeof registerSchema>;
+
+export default function AuthPage({ mode }: { mode: "login" | "register" }) {
+  const [location, setLocation] = useLocation();
   const { login, register, user } = useAuth();
-  const [, setLocation] = useLocation();
-  const [isPending, setIsPending] = useState(false);
-
-  // Redirect if already logged in
+  
   if (user) {
     setLocation("/dashboard");
     return null;
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
-      {/* Left side: Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-slate-900 text-white p-12 flex-col justify-between relative overflow-hidden">
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-20">
-            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-              <Star className="w-5 h-5 text-slate-900 fill-current" />
-            </div>
-            <span className="text-xl font-bold font-display tracking-tight">Fleek</span>
-          </div>
-          <h2 className="text-4xl font-display font-bold leading-tight mb-6">
-            Understand your customers <br/> better than ever.
-          </h2>
-          <p className="text-slate-400 text-lg max-w-md">
-            Join thousands of businesses using Fleek to gather feedback, improve service, and grow their reputation.
-          </p>
-        </div>
-        
-        {/* Abstract decorative circles */}
-        <div className="absolute top-1/2 right-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4" />
-        
-        <div className="relative z-10 text-sm text-slate-500">
-          © {new Date().getFullYear()} Fleek Inc.
-        </div>
-      </div>
+  const isLogin = mode === "login";
 
-      {/* Right side: Form */}
-      <div className="flex-1 flex flex-col justify-center p-6 sm:p-12 lg:p-24 bg-white">
-        <div className="w-full max-w-md mx-auto">
-          <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to home
+  return (
+    <div className="min-h-screen grid lg:grid-cols-2">
+      {/* Left Column - Form */}
+      <div className="flex flex-col justify-center px-4 sm:px-6 lg:px-20 xl:px-24 bg-white">
+        <div className="w-full max-w-sm mx-auto">
+          <Link href="/" className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-8 transition-colors">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Voltar para Home
           </Link>
           
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold font-display text-slate-900">
-              {mode === "login" ? "Welcome back" : "Create an account"}
+          <div className="mb-10">
+            <h1 className="text-3xl font-bold font-display text-slate-900 tracking-tight mb-2">
+              {isLogin ? "Bem-vindo de volta" : "Comece gratuitamente"}
             </h1>
-            <p className="text-muted-foreground mt-2">
-              {mode === "login" 
-                ? "Enter your details to access your dashboard." 
-                : "Get started with your free account today."}
+            <p className="text-slate-500">
+              {isLogin 
+                ? "Entre para acessar seu dashboard de feedbacks." 
+                : "Crie sua conta e comece a coletar avaliações hoje."}
             </p>
           </div>
 
-          {mode === "login" ? (
-            <LoginForm 
-              onSubmit={async (data) => {
-                setIsPending(true);
-                try {
-                  await login.mutateAsync(data);
-                } finally {
-                  setIsPending(false);
-                }
-              }} 
-              isLoading={isPending} 
-            />
+          {isLogin ? (
+            <LoginForm onSubmit={(data) => login.mutate(data)} isPending={login.isPending} />
           ) : (
-            <RegisterForm 
-              onSubmit={async (data) => {
-                setIsPending(true);
-                try {
-                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                  const { confirmPassword, ...apiData } = data;
-                  await register.mutateAsync(apiData);
-                  setLocation("/login");
-                } finally {
-                  setIsPending(false);
-                }
-              }} 
-              isLoading={isPending} 
-            />
+            <RegisterForm onSubmit={(data) => register.mutate(data)} isPending={register.isPending} />
           )}
 
-          <div className="mt-6 text-center text-sm">
-            {mode === "login" ? (
-              <p className="text-muted-foreground">
-                Don't have an account?{" "}
-                <Link href="/register" className="font-medium text-primary hover:underline">
-                  Sign up
-                </Link>
-              </p>
-            ) : (
-              <p className="text-muted-foreground">
-                Already have an account?{" "}
-                <Link href="/login" className="font-medium text-primary hover:underline">
-                  Log in
-                </Link>
-              </p>
-            )}
+          <div className="mt-8 text-center">
+            <p className="text-sm text-slate-600">
+              {isLogin ? "Não tem uma conta? " : "Já tem uma conta? "}
+              <Link 
+                href={isLogin ? "/register" : "/login"} 
+                className="font-semibold text-primary hover:text-primary/80 transition-colors"
+              >
+                {isLogin ? "Cadastre-se" : "Entrar"}
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Column - Image/Marketing */}
+      <div className="hidden lg:block relative bg-slate-900 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-800" />
+        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-40 mix-blend-overlay" />
+        {/* Restaurant ambiance abstract */}
+        
+        <div className="relative h-full flex flex-col justify-end p-20 text-white">
+          <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl border border-white/10 max-w-lg">
+            <div className="flex gap-1 mb-4">
+              {[1,2,3,4,5].map(i => (
+                <div key={i} className="text-yellow-400">★</div>
+              ))}
+            </div>
+            <p className="text-xl font-medium leading-relaxed mb-6">
+              "Desde que começamos a usar o Fleek, conseguimos identificar pontos de melhoria no atendimento que nem imaginávamos. O NPS subiu 30% em dois meses!"
+            </p>
+            <div>
+              <div className="font-bold">Carlos Mendes</div>
+              <div className="text-white/60 text-sm">Dono do Bistrô Mendes</div>
+            </div>
           </div>
         </div>
       </div>
@@ -127,122 +98,93 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
   );
 }
 
-function LoginForm({ onSubmit, isLoading }: { onSubmit: (data: LoginFormData) => void, isLoading: boolean }) {
-  const form = useForm<LoginFormData>();
+function LoginForm({ onSubmit, isPending }: { onSubmit: (data: LoginData) => void, isPending: boolean }) {
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginData>({
+    resolver: zodResolver(loginSchema)
+  });
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div className="space-y-2">
-        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="username">
-          Email / Username
-        </label>
+        <label className="text-sm font-medium text-slate-900">E-mail</label>
         <input
-          {...form.register("username", { required: true })}
-          id="username"
-          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
-          placeholder="name@example.com"
-          disabled={isLoading}
+          {...register("username")}
+          type="email"
+          className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all"
+          placeholder="voce@empresa.com"
         />
+        {errors.username && <p className="text-sm text-red-500">{errors.username.message}</p>}
       </div>
       
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">
-            Password
-          </label>
+        <div className="flex justify-between">
+          <label className="text-sm font-medium text-slate-900">Senha</label>
         </div>
         <input
-          {...form.register("password", { required: true })}
-          id="password"
+          {...register("password")}
           type="password"
-          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
-          disabled={isLoading}
+          className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all"
+          placeholder="••••••••"
         />
+        {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
       </div>
 
       <button
         type="submit"
-        disabled={isLoading}
-        className="w-full inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 shadow-md"
+        disabled={isPending}
+        className="w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl shadow-lg shadow-slate-900/20 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center"
       >
-        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Log in"}
+        {isPending ? <Loader2 className="animate-spin w-5 h-5" /> : "Entrar na conta"}
       </button>
     </form>
   );
 }
 
-function RegisterForm({ onSubmit, isLoading }: { onSubmit: (data: RegisterFormData) => void, isLoading: boolean }) {
-  const form = useForm<RegisterFormData>({
+function RegisterForm({ onSubmit, isPending }: { onSubmit: (data: RegisterData) => void, isPending: boolean }) {
+  const { register, handleSubmit, formState: { errors } } = useForm<RegisterData>({
     resolver: zodResolver(registerSchema)
   });
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="businessName">Business Name</label>
+        <label className="text-sm font-medium text-slate-900">Nome do Negócio</label>
         <input
-          {...form.register("businessName")}
-          id="businessName"
-          placeholder="Joe's Coffee"
-          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all"
-          disabled={isLoading}
+          {...register("businessName")}
+          className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all"
+          placeholder="Ex: Pizzaria do João"
         />
-        {form.formState.errors.businessName && (
-          <p className="text-sm text-destructive">{form.formState.errors.businessName.message}</p>
-        )}
+        {errors.businessName && <p className="text-sm text-red-500">{errors.businessName.message}</p>}
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="username">Email</label>
+        <label className="text-sm font-medium text-slate-900">E-mail Profissional</label>
         <input
-          {...form.register("username")}
-          id="username"
+          {...register("username")}
           type="email"
-          placeholder="joe@coffee.com"
-          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all"
-          disabled={isLoading}
+          className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all"
+          placeholder="voce@empresa.com"
         />
-        {form.formState.errors.username && (
-          <p className="text-sm text-destructive">{form.formState.errors.username.message}</p>
-        )}
+        {errors.username && <p className="text-sm text-red-500">{errors.username.message}</p>}
       </div>
       
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium" htmlFor="password">Password</label>
-          <input
-            {...form.register("password")}
-            id="password"
-            type="password"
-            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all"
-            disabled={isLoading}
-          />
-          {form.formState.errors.password && (
-            <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
-          )}
-        </div>
-        
-        <div className="space-y-2">
-          <label className="text-sm font-medium" htmlFor="confirmPassword">Confirm</label>
-          <input
-            {...form.register("confirmPassword")}
-            id="confirmPassword"
-            type="password"
-            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all"
-            disabled={isLoading}
-          />
-          {form.formState.errors.confirmPassword && (
-            <p className="text-sm text-destructive">{form.formState.errors.confirmPassword.message}</p>
-          )}
-        </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-slate-900">Senha</label>
+        <input
+          {...register("password")}
+          type="password"
+          className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all"
+          placeholder="Mínimo 6 caracteres"
+        />
+        {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
       </div>
 
       <button
         type="submit"
-        disabled={isLoading}
-        className="w-full inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 shadow-md mt-2"
+        disabled={isPending}
+        className="w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl shadow-lg shadow-slate-900/20 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center"
       >
-        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Account"}
+        {isPending ? <Loader2 className="animate-spin w-5 h-5" /> : "Criar conta grátis"}
       </button>
     </form>
   );

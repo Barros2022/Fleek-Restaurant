@@ -1,44 +1,47 @@
-import { cn } from "@/lib/utils";
-import { ReactNode } from "react";
+import { motion } from "framer-motion";
+import { ArrowUpRight, ArrowDownRight } from "lucide-react";
 
 interface StatCardProps {
   title: string;
   value: string | number;
-  icon: ReactNode;
-  trend?: string;
-  trendUp?: boolean;
-  className?: string;
+  icon: React.ReactNode;
   delay?: number;
+  trend?: "Good" | "Needs Work";
+  trendUp?: boolean;
+  subtext?: string;
 }
 
-export function StatCard({ title, value, icon, trend, trendUp, className, delay = 0 }: StatCardProps) {
+export function StatCard({ title, value, icon, delay = 0, trend, trendUp, subtext }: StatCardProps) {
   return (
-    <div 
-      className={cn(
-        "bg-white rounded-2xl p-6 border border-border shadow-sm hover:shadow-md transition-all duration-300",
-        "flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards",
-        className
-      )}
-      style={{ animationDelay: `${delay}ms` }}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: delay * 0.1 }}
+      className="bg-white rounded-2xl p-6 border border-border shadow-sm hover:shadow-md transition-shadow"
     >
-      <div className="flex justify-between items-start">
-        <div className="p-2 bg-primary/10 rounded-xl text-primary">
+      <div className="flex justify-between items-start mb-4">
+        <div className="p-3 bg-slate-50 rounded-xl text-slate-600">
           {icon}
         </div>
         {trend && (
-          <span className={cn(
-            "text-xs font-medium px-2 py-1 rounded-full",
-            trendUp ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-          )}>
+          <div className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${
+            trendUp 
+              ? "bg-green-50 text-green-700" 
+              : "bg-red-50 text-red-700"
+          }`}>
+            {trendUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
             {trend}
-          </span>
+          </div>
         )}
       </div>
       
       <div>
         <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
-        <p className="text-3xl font-bold text-foreground mt-1 tracking-tight font-display">{value}</p>
+        <div className="flex items-baseline gap-2 mt-1">
+          <span className="text-2xl font-bold font-display text-slate-900">{value}</span>
+          {subtext && <span className="text-sm text-muted-foreground">{subtext}</span>}
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
