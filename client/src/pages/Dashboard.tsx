@@ -210,11 +210,13 @@ export default function Dashboard() {
 
               {/* Feedbacks List */}
               <div>
-                <h2 className="text-lg font-bold font-display mb-4 text-slate-900 flex items-center gap-2">
-                  Avaliações Recentes
-                  <span className="text-xs font-normal text-muted-foreground bg-white px-2 py-1 rounded-full border border-border shadow-sm">
-                    {feedbacks?.length} total
-                  </span>
+                <h2 className="text-lg font-bold font-display mb-4 text-slate-900 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    Avaliações Recentes
+                    <span className="text-xs font-normal text-muted-foreground bg-white px-2 py-1 rounded-full border border-border shadow-sm">
+                      Últimas 10
+                    </span>
+                  </div>
                 </h2>
                 
                 {feedbacks?.length === 0 ? (
@@ -228,10 +230,19 @@ export default function Dashboard() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {feedbacks?.map((fb) => (
-                      <FeedbackCard key={fb.id} feedback={fb} />
-                    ))}
+                  <div className="bg-white rounded-2xl border border-border overflow-hidden">
+                    <div className="max-h-[600px] overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                      {feedbacks?.slice(0, 10).map((fb) => (
+                        <FeedbackCard key={fb.id} feedback={fb} />
+                      ))}
+                    </div>
+                    {feedbacks && feedbacks.length > 10 && (
+                      <div className="bg-slate-50 p-3 text-center border-t border-border">
+                        <p className="text-xs text-muted-foreground italic">
+                          Mostrando apenas as 10 avaliações mais recentes deste período.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
