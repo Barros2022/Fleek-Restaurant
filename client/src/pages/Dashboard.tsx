@@ -113,35 +113,35 @@ export default function Dashboard() {
                   icon={<BarChart3 className="w-5 h-5" />}
                   trend={stats?.npsScore > 0 ? "Good" : "Needs Work"}
                   trendUp={stats?.npsScore > 50}
-                  delay={100}
+                  delay={0}
                 />
                 <StatCard 
                   title="Média Comida" 
                   value={Number(stats?.avgFood || 0).toFixed(1)}
                   icon={<Utensils className="w-5 h-5" />}
                   subtext="/ 5.0"
-                  delay={200}
+                  delay={0}
                 />
                 <StatCard 
                   title="Média Atendimento" 
                   value={Number(stats?.avgService || 0).toFixed(1)}
                   icon={<Smile className="w-5 h-5" />}
                   subtext="/ 5.0"
-                  delay={300}
+                  delay={0}
                 />
                 <StatCard 
                   title="Média Tempo Espera" 
                   value={Number(stats?.avgWaitTime || 0).toFixed(1)}
                   icon={<Clock className="w-5 h-5" />}
                   subtext="/ 5.0"
-                  delay={400}
+                  delay={0}
                 />
                 <StatCard 
                   title="Média Ambiente" 
                   value={Number(stats?.avgAmbiance || 0).toFixed(1)}
                   icon={<Sparkles className="w-5 h-5" />}
                   subtext="/ 5.0"
-                  delay={500}
+                  delay={0}
                 />
               </div>
 
