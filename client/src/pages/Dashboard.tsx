@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { useFeedbacks, useFeedbackStats } from "@/hooks/use-feedbacks";
+import { useFeedbacks, useFeedbackStats, useDeleteFeedbacks } from "@/hooks/use-feedbacks";
 import { StatCard } from "@/components/ui/stat-card";
 import { FeedbackCard } from "@/components/ui/feedback-card";
 import { 
@@ -15,11 +15,24 @@ import {
   Clock,
   Sparkles,
   Smile,
-  Calendar
+  Calendar,
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function Dashboard() {
   const { user, logout, isLoading: isAuthLoading } = useAuth();
@@ -27,8 +40,11 @@ export default function Dashboard() {
   const [days, setDays] = useState<number | undefined>(7);
   const { data: stats, isLoading: isStatsLoading } = useFeedbackStats(days);
   const { data: feedbacks, isLoading: isFeedbacksLoading } = useFeedbacks(days);
+  const deleteFeedbacks = useDeleteFeedbacks();
   const qrRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   if (isAuthLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
@@ -56,6 +72,14 @@ export default function Dashboard() {
   const copyLink = () => {
     navigator.clipboard.writeText(feedbackUrl);
     toast({ title: "Copiado!", description: "Link de feedback copiado para área de transferência." });
+  };
+
+  const handleDeleteAll = async () => {
+    if (deleteConfirm.toLowerCase() === "confirmar") {
+      await deleteFeedbacks.mutateAsync();
+      setIsDeleteDialogOpen(false);
+      setDeleteConfirm("");
+    }
   };
 
   const isLoading = isStatsLoading || isFeedbacksLoading;
@@ -89,30 +113,75 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
-          <div>
+          <div className="flex-1">
             <h1 className="text-3xl font-bold font-display text-slate-900">Dashboard</h1>
             <p className="text-muted-foreground mt-1">Visão geral do sentimento dos seus clientes.</p>
           </div>
           
-          <div className="flex bg-white border border-border rounded-xl p-1 shadow-sm h-10 items-center">
-            {[
-              { label: "7 dias", value: 7 },
-              { label: "30 dias", value: 30 },
-              { label: "90 dias", value: 90 },
-              { label: "Tudo", value: undefined },
-            ].map((period) => (
-              <button
-                key={period.label}
-                onClick={() => setDays(period.value)}
-                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  days === period.value 
-                    ? "bg-slate-900 text-white shadow-sm" 
-                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
-                }`}
-              >
-                {period.label}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex bg-white border border-border rounded-xl p-1 shadow-sm h-10 items-center">
+              {[
+                { label: "7 dias", value: 7 },
+                { label: "30 dias", value: 30 },
+                { label: "90 dias", value: 90 },
+                { label: "Tudo", value: undefined },
+              ].map((period) => (
+                <button
+                  key={period.label}
+                  onClick={() => setDays(period.value)}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                    days === period.value 
+                      ? "bg-slate-900 text-white shadow-sm" 
+                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
+                >
+                  {period.label}
+                </button>
+              ))}
+            </div>
+
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-10 text-destructive hover:bg-destructive/10 border-destructive/20 gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  Limpar Dados
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-destructive">
+                    <AlertTriangle className="w-5 h-5" />
+                    Excluir todos os dados?
+                  </DialogTitle>
+                  <DialogDescription>
+                    Esta ação é irreversível. Todos os feedbacks e estatísticas serão apagados permanentemente.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                  <p className="text-sm font-medium">
+                    Para confirmar, digite <span className="font-bold text-slate-900">confirmar</span> abaixo:
+                  </p>
+                  <Input 
+                    value={deleteConfirm}
+                    onChange={(e) => setDeleteConfirm(e.target.value)}
+                    placeholder="confirmar"
+                    className="h-10"
+                  />
+                </div>
+                <DialogFooter>
+                  <Button variant="ghost" onClick={() => setIsDeleteDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    disabled={deleteConfirm.toLowerCase() !== "confirmar" || deleteFeedbacks.isPending}
+                    onClick={handleDeleteAll}
+                  >
+                    {deleteFeedbacks.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Excluir Tudo"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 

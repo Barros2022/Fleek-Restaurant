@@ -98,6 +98,14 @@ export const api = {
         401: errorSchemas.unauthorized,
       },
     },
+    deleteAll: {
+      method: 'DELETE' as const,
+      path: '/api/feedbacks',
+      responses: {
+        200: z.object({ message: z.string() }),
+        401: errorSchemas.unauthorized,
+      },
+    },
   },
   public: {
     business: {

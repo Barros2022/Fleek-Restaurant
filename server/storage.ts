@@ -20,6 +20,7 @@ export interface IStorage {
     passives: number,
     detractors: number
   }>;
+  deleteUserFeedbacks(userId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -116,6 +117,10 @@ export class DatabaseStorage implements IStorage {
       passives,
       detractors
     };
+  }
+
+  async deleteUserFeedbacks(userId: number): Promise<void> {
+    await db.delete(feedbacks).where(eq(feedbacks.userId, userId));
   }
 }
 

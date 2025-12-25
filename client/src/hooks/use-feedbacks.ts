@@ -63,6 +63,27 @@ export function useSubmitFeedback() {
   });
 }
 
+// Delete All Feedbacks
+export function useDeleteFeedbacks() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch(api.feedbacks.deleteAll.path, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete feedbacks");
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.feedbacks.stats.path] });
+      queryClient.invalidateQueries({ queryKey: [api.feedbacks.list.path] });
+      toast({ title: "Sucesso", description: "Todos os feedbacks foram excluídos." });
+    },
+  });
+}
+
 // Get Business Info (Public)
 export function useBusinessInfo(userId: number) {
   return useQuery({

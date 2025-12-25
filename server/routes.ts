@@ -91,6 +91,12 @@ export async function registerRoutes(
     res.json(feedbacks);
   });
 
+  // Delete All Feedbacks
+  app.delete(api.feedbacks.deleteAll.path, requireAuth, async (req, res) => {
+    await storage.deleteUserFeedbacks((req.user as any).id);
+    res.json({ message: "All feedbacks deleted" });
+  });
+
   // Public Routes (No Auth)
   
   // Submit Feedback
