@@ -79,13 +79,15 @@ export async function registerRoutes(
 
   // Stats
   app.get(api.feedbacks.stats.path, requireAuth, async (req, res) => {
-    const stats = await storage.getStats(req.user!.id);
+    const days = req.query.days ? parseInt(req.query.days as string) : undefined;
+    const stats = await storage.getStats(req.user!.id, days);
     res.json(stats);
   });
 
   // List Feedbacks
   app.get(api.feedbacks.list.path, requireAuth, async (req, res) => {
-    const feedbacks = await storage.getFeedbacks(req.user!.id);
+    const days = req.query.days ? parseInt(req.query.days as string) : undefined;
+    const feedbacks = await storage.getFeedbacks(req.user!.id, days);
     res.json(feedbacks);
   });
 

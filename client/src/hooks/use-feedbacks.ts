@@ -3,11 +3,12 @@ import { api, buildUrl, type InsertFeedback } from "@shared/routes";
 import { useToast } from "@/hooks/use-toast";
 
 // Fetch Stats for Dashboard
-export function useFeedbackStats() {
+export function useFeedbackStats(days?: number) {
   return useQuery({
-    queryKey: [api.feedbacks.stats.path],
+    queryKey: [api.feedbacks.stats.path, days],
     queryFn: async () => {
-      const res = await fetch(api.feedbacks.stats.path);
+      const url = days ? `${api.feedbacks.stats.path}?days=${days}` : api.feedbacks.stats.path;
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch stats");
       return api.feedbacks.stats.responses[200].parse(await res.json());
     },
@@ -15,11 +16,12 @@ export function useFeedbackStats() {
 }
 
 // List Feedbacks for Dashboard
-export function useFeedbacks() {
+export function useFeedbacks(days?: number) {
   return useQuery({
-    queryKey: [api.feedbacks.list.path],
+    queryKey: [api.feedbacks.list.path, days],
     queryFn: async () => {
-      const res = await fetch(api.feedbacks.list.path);
+      const url = days ? `${api.feedbacks.list.path}?days=${days}` : api.feedbacks.list.path;
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch feedbacks");
       return api.feedbacks.list.responses[200].parse(await res.json());
     },

@@ -69,6 +69,9 @@ export const api = {
     list: {
       method: 'GET' as const,
       path: '/api/feedbacks', // For logged in user to see their feedbacks
+      input: z.object({
+        days: z.coerce.number().optional(),
+      }).optional(),
       responses: {
         200: z.array(z.custom<typeof feedbacks.$inferSelect>()),
         401: errorSchemas.unauthorized,
@@ -77,6 +80,9 @@ export const api = {
     stats: {
       method: 'GET' as const,
       path: '/api/stats', // For dashboard metrics
+      input: z.object({
+        days: z.coerce.number().optional(),
+      }).optional(),
       responses: {
         200: z.object({
           totalFeedbacks: z.number(),
@@ -85,6 +91,9 @@ export const api = {
           avgService: z.number(),
           avgWaitTime: z.number(),
           avgAmbiance: z.number(),
+          promoters: z.number(),
+          passives: z.number(),
+          detractors: z.number(),
         }),
         401: errorSchemas.unauthorized,
       },

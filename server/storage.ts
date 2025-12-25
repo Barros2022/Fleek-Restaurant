@@ -1,6 +1,6 @@
 import { users, feedbacks, type User, type InsertUser, type Feedback, type InsertFeedback } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, gte, and } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -8,14 +8,17 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
 
   createFeedback(feedback: InsertFeedback): Promise<Feedback>;
-  getFeedbacks(userId: number): Promise<Feedback[]>;
-  getStats(userId: number): Promise<{ 
+  getFeedbacks(userId: number, days?: number): Promise<Feedback[]>;
+  getStats(userId: number, days?: number): Promise<{ 
     totalFeedbacks: number, 
     npsScore: number,
     avgFood: number,
     avgService: number,
     avgWaitTime: number,
-    avgAmbiance: number
+    avgAmbiance: number,
+    promoters: number,
+    passives: number,
+    detractors: number
   }>;
 }
 
@@ -40,22 +43,40 @@ export class DatabaseStorage implements IStorage {
     return newFeedback;
   }
 
-  async getFeedbacks(userId: number): Promise<Feedback[]> {
-    return await db.select()
+  async getFeedbacks(userId: number, days?: number): Promise<Feedback[]> {
+    let query = db.select()
       .from(feedbacks)
-      .where(eq(feedbacks.userId, userId))
+      .where(
+        days 
+          ? and(eq(feedbacks.userId, userId), gte(feedbacks.createdAt, new Date(Date.now() - days * 24 * 60 * 60 * 1000)))
+          : eq(feedbacks.userId, userId)
+      )
       .orderBy(desc(feedbacks.createdAt));
+    
+    return await query;
   }
 
-  async getStats(userId: number): Promise<{ 
+  async getStats(userId: number, days?: number): Promise<{ 
     totalFeedbacks: number, 
     npsScore: number,
     avgFood: number,
     avgService: number,
     avgWaitTime: number,
-    avgAmbiance: number
+    avgAmbiance: number,
+    promoters: number,
+    passives: number,
+    detractors: number
   }> {
-    const result = await db.select().from(feedbacks).where(eq(feedbacks.userId, userId));
+    const dateLimit = days ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : null;
+    
+    const result = await db.select()
+      .from(feedbacks)
+      .where(
+        dateLimit 
+          ? and(eq(feedbacks.userId, userId), gte(feedbacks.createdAt, dateLimit))
+          : eq(feedbacks.userId, userId)
+      );
+      
     const total = result.length;
     
     if (total === 0) {
@@ -65,12 +86,16 @@ export class DatabaseStorage implements IStorage {
         avgFood: 0,
         avgService: 0,
         avgWaitTime: 0,
-        avgAmbiance: 0
+        avgAmbiance: 0,
+        promoters: 0,
+        passives: 0,
+        detractors: 0
       };
     }
 
     // NPS Calculation
     const promoters = result.filter(f => f.npsScore >= 9).length;
+    const passives = result.filter(f => f.npsScore >= 7 && f.npsScore <= 8).length;
     const detractors = result.filter(f => f.npsScore <= 6).length;
     const nps = ((promoters - detractors) / total) * 100;
 
@@ -86,7 +111,10 @@ export class DatabaseStorage implements IStorage {
       avgFood: parseFloat(avgFood.toFixed(1)),
       avgService: parseFloat(avgService.toFixed(1)),
       avgWaitTime: parseFloat(avgWaitTime.toFixed(1)),
-      avgAmbiance: parseFloat(avgAmbiance.toFixed(1))
+      avgAmbiance: parseFloat(avgAmbiance.toFixed(1)),
+      promoters,
+      passives,
+      detractors
     };
   }
 }

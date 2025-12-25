@@ -14,17 +14,19 @@ import {
   Utensils,
   Clock,
   Sparkles,
-  Smile
+  Smile,
+  Calendar
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const { user, logout, isLoading: isAuthLoading } = useAuth();
   const [, setLocation] = useLocation();
-  const { data: stats, isLoading: isStatsLoading } = useFeedbackStats();
-  const { data: feedbacks, isLoading: isFeedbacksLoading } = useFeedbacks();
+  const [days, setDays] = useState<number | undefined>(7);
+  const { data: stats, isLoading: isStatsLoading } = useFeedbackStats(days);
+  const { data: feedbacks, isLoading: isFeedbacksLoading } = useFeedbacks(days);
   const qrRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -86,9 +88,32 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold font-display text-slate-900">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Visão geral do sentimento dos seus clientes.</p>
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold font-display text-slate-900">Dashboard</h1>
+            <p className="text-muted-foreground mt-1">Visão geral do sentimento dos seus clientes.</p>
+          </div>
+          
+          <div className="flex bg-white border border-border rounded-xl p-1 shadow-sm h-10 items-center">
+            {[
+              { label: "7 dias", value: 7 },
+              { label: "30 dias", value: 30 },
+              { label: "90 dias", value: 90 },
+              { label: "Tudo", value: undefined },
+            ].map((period) => (
+              <button
+                key={period.label}
+                onClick={() => setDays(period.value)}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  days === period.value 
+                    ? "bg-slate-900 text-white shadow-sm" 
+                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                }`}
+              >
+                {period.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {isLoading ? (
@@ -111,7 +136,7 @@ export default function Dashboard() {
                   title="NPS Score" 
                   value={stats?.npsScore || 0}
                   icon={<BarChart3 className="w-5 h-5" />}
-                  trend={stats?.npsScore > 0 ? "Good" : "Needs Work"}
+                  trend={stats?.npsScore > 0 ? "Bom" : "Pode Melhorar"}
                   trendUp={stats?.npsScore > 50}
                   delay={0}
                 />
@@ -144,6 +169,44 @@ export default function Dashboard() {
                   delay={0}
                 />
               </div>
+
+              {/* NPS Distribution */}
+              {stats && stats.totalFeedbacks > 0 && (
+                <div className="bg-white p-6 rounded-2xl border border-border shadow-sm">
+                  <h3 className="text-sm font-semibold text-slate-900 mb-6 flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-primary" />
+                    Distribuição NPS
+                  </h3>
+                  <div className="flex h-4 w-full rounded-full overflow-hidden bg-slate-100 mb-4">
+                    <div 
+                      className="bg-green-500 transition-all duration-500" 
+                      style={{ width: `${(stats.promoters / stats.totalFeedbacks) * 100}%` }}
+                    />
+                    <div 
+                      className="bg-yellow-400 transition-all duration-500" 
+                      style={{ width: `${(stats.passives / stats.totalFeedbacks) * 100}%` }}
+                    />
+                    <div 
+                      className="bg-red-500 transition-all duration-500" 
+                      style={{ width: `${(stats.detractors / stats.totalFeedbacks) * 100}%` }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <div className="text-xs font-medium text-slate-500">Promotores</div>
+                      <div className="text-sm font-bold text-green-600">{stats.promoters}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-slate-500">Passivos</div>
+                      <div className="text-sm font-bold text-yellow-600">{stats.passives}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-slate-500">Detratores</div>
+                      <div className="text-sm font-bold text-red-600">{stats.detractors}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Feedbacks List */}
               <div>

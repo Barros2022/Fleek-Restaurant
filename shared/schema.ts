@@ -7,7 +7,7 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(), // Acts as email
   password: text("password").notNull(),
   businessName: text("business_name").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const feedbacks = pgTable("feedbacks", {
@@ -32,7 +32,7 @@ export const feedbacks = pgTable("feedbacks", {
   // P6: Comentário
   comment: text("comment"),
   
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({ 
