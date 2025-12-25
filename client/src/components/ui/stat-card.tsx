@@ -6,7 +6,7 @@ interface StatCardProps {
   value: string | number;
   icon: React.ReactNode;
   delay?: number;
-  trend?: "Good" | "Needs Work" | "Bom" | "Pode Melhorar";
+  trend?: "Bom" | "Pode Melhorar" | "Excelente" | "Ruim";
   trendUp?: boolean;
   subtext?: string;
 }

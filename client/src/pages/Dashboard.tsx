@@ -136,8 +136,8 @@ export default function Dashboard() {
                   title="NPS Score" 
                   value={stats?.npsScore || 0}
                   icon={<BarChart3 className="w-5 h-5" />}
-                  trend={stats && stats.npsScore > 0 ? "Good" : "Needs Work"}
-                  trendUp={stats && stats.npsScore > 50}
+                  trend={stats && stats.npsScore >= 50 ? "Bom" : "Pode Melhorar"}
+                  trendUp={stats && stats.npsScore >= 50}
                   delay={0}
                 />
                 <StatCard 
@@ -145,6 +145,8 @@ export default function Dashboard() {
                   value={Number(stats?.avgFood || 0).toFixed(1)}
                   icon={<Utensils className="w-5 h-5" />}
                   subtext="/ 5.0"
+                  trend={stats && stats.avgFood >= 4 ? "Excelente" : stats && stats.avgFood >= 3 ? "Bom" : "Ruim"}
+                  trendUp={stats && stats.avgFood >= 4}
                   delay={0}
                 />
                 <StatCard 
@@ -152,6 +154,8 @@ export default function Dashboard() {
                   value={Number(stats?.avgService || 0).toFixed(1)}
                   icon={<Smile className="w-5 h-5" />}
                   subtext="/ 5.0"
+                  trend={stats && stats.avgService >= 4 ? "Excelente" : stats && stats.avgService >= 3 ? "Bom" : "Ruim"}
+                  trendUp={stats && stats.avgService >= 4}
                   delay={0}
                 />
                 <StatCard 
@@ -159,6 +163,8 @@ export default function Dashboard() {
                   value={Number(stats?.avgWaitTime || 0).toFixed(1)}
                   icon={<Clock className="w-5 h-5" />}
                   subtext="/ 5.0"
+                  trend={stats && stats.avgWaitTime >= 4 ? "Excelente" : stats && stats.avgWaitTime >= 3 ? "Bom" : "Ruim"}
+                  trendUp={stats && stats.avgWaitTime >= 4}
                   delay={0}
                 />
                 <StatCard 
@@ -166,6 +172,8 @@ export default function Dashboard() {
                   value={Number(stats?.avgAmbiance || 0).toFixed(1)}
                   icon={<Sparkles className="w-5 h-5" />}
                   subtext="/ 5.0"
+                  trend={stats && stats.avgAmbiance >= 4 ? "Excelente" : stats && stats.avgAmbiance >= 3 ? "Bom" : "Ruim"}
+                  trendUp={stats && stats.avgAmbiance >= 4}
                   delay={0}
                 />
               </div>
