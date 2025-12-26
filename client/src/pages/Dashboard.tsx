@@ -65,51 +65,128 @@ export default function Dashboard() {
       const ctx = exportCanvas.getContext("2d", { alpha: false });
       if (!ctx) return;
 
-      // Configuration for high-resolution print (A6-ish proportions at 300dpi approximation)
-      const scale = 4; // Scale factor for high resolution
+      // Configuration for high-resolution print
+      const scale = 4;
+      const padding = 100 * scale;
+      const borderWidth = 8 * scale;
+      const innerPadding = 40 * scale;
       const qrOriginalSize = canvas.width;
-      const margin = 80 * scale;
-      const width = (qrOriginalSize + margin * 2) * scale;
-      const height = (qrOriginalSize + margin * 2 + 150) * scale;
+      const qrDisplaySize = qrOriginalSize * scale;
+      
+      const contentWidth = qrDisplaySize + (innerPadding * 2);
+      const contentHeight = qrDisplaySize + (innerPadding * 2) + (180 * scale);
+      const width = contentWidth + (padding * 2);
+      const height = contentHeight + (padding * 2);
 
       exportCanvas.width = width;
       exportCanvas.height = height;
 
-      // Draw background (Solid White)
-      ctx.fillStyle = "#FFFFFF";
+      // 1. Fundo externo (cor suave)
+      ctx.fillStyle = "#F8FAFC"; // slate-50
       ctx.fillRect(0, 0, width, height);
 
-      // 1. Título: "Avalie nossa experiência"
-      ctx.fillStyle = "#0F172A"; // slate-900
-      ctx.font = `bold ${28 * scale}px sans-serif`;
+      // 2. Moldura externa decorativa
+      const frameX = padding - borderWidth;
+      const frameY = padding - borderWidth;
+      const frameW = contentWidth + (borderWidth * 2);
+      const frameH = contentHeight + (borderWidth * 2);
+      const cornerRadius = 24 * scale;
+
+      // Sombra suave
+      ctx.shadowColor = "rgba(0, 0, 0, 0.1)";
+      ctx.shadowBlur = 30 * scale;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 10 * scale;
+
+      // Moldura com cantos arredondados
+      ctx.fillStyle = "#0F172A"; // slate-900 (cor da moldura)
+      ctx.beginPath();
+      ctx.roundRect(frameX, frameY, frameW, frameH, cornerRadius);
+      ctx.fill();
+
+      // Reset shadow
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+
+      // 3. Área interna branca
+      ctx.fillStyle = "#FFFFFF";
+      ctx.beginPath();
+      ctx.roundRect(padding, padding, contentWidth, contentHeight, cornerRadius - borderWidth);
+      ctx.fill();
+
+      // 4. Linha decorativa superior (accent)
+      const accentY = padding + (35 * scale);
+      ctx.strokeStyle = "#E2E8F0"; // slate-200
+      ctx.lineWidth = 2 * scale;
+      ctx.beginPath();
+      ctx.moveTo(padding + innerPadding, accentY);
+      ctx.lineTo(padding + contentWidth - innerPadding, accentY);
+      ctx.stroke();
+
+      // 5. Título: "Avalie nossa experiência"
+      ctx.fillStyle = "#0F172A";
+      ctx.font = `bold ${26 * scale}px system-ui, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.fillText("Avalie nossa experiência", width / 2, margin * 0.8);
+      ctx.fillText("Avalie nossa experiência", width / 2, padding + (50 * scale));
 
-      // 2. QR Code centralizado em tamanho grande
-      // We draw the original canvas onto the scaled export canvas
-      const qrDisplaySize = qrOriginalSize * scale;
+      // 6. QR Code centralizado
       const qrX = (width - qrDisplaySize) / 2;
-      const qrY = margin * 1.8;
+      const qrY = padding + (100 * scale);
       
-      // Draw white background behind QR just in case
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(qrX, qrY, qrDisplaySize, qrDisplaySize);
-      
-      ctx.imageSmoothingEnabled = false; // Keep QR sharp
+      // Moldura interna do QR
+      const qrFramePadding = 16 * scale;
+      ctx.fillStyle = "#F1F5F9"; // slate-100
+      ctx.beginPath();
+      ctx.roundRect(
+        qrX - qrFramePadding, 
+        qrY - qrFramePadding, 
+        qrDisplaySize + (qrFramePadding * 2), 
+        qrDisplaySize + (qrFramePadding * 2), 
+        12 * scale
+      );
+      ctx.fill();
+
+      // QR Code
+      ctx.imageSmoothingEnabled = false;
       ctx.drawImage(canvas, qrX, qrY, qrDisplaySize, qrDisplaySize);
 
-      // 3. Nome do restaurante
-      ctx.fillStyle = "#0F172A"; // slate-900
-      ctx.font = `bold ${36 * scale}px sans-serif`;
-      ctx.fillText(user.businessName, width / 2, qrY + qrDisplaySize + (30 * scale));
+      // 7. Nome do restaurante
+      ctx.fillStyle = "#0F172A";
+      ctx.font = `bold ${32 * scale}px system-ui, sans-serif`;
+      ctx.fillText(user.businessName, width / 2, qrY + qrDisplaySize + (45 * scale));
 
-      // 4. Texto auxiliar: "Escaneie para deixar seu feedback"
-      ctx.fillStyle = "#64748B"; // slate-500
-      ctx.font = `${18 * scale}px sans-serif`;
-      ctx.fillText("Escaneie para deixar seu feedback", width / 2, qrY + qrDisplaySize + (85 * scale));
+      // 8. Linha decorativa inferior
+      const bottomLineY = qrY + qrDisplaySize + (90 * scale);
+      ctx.strokeStyle = "#E2E8F0";
+      ctx.lineWidth = 2 * scale;
+      ctx.beginPath();
+      ctx.moveTo(padding + innerPadding, bottomLineY);
+      ctx.lineTo(padding + contentWidth - innerPadding, bottomLineY);
+      ctx.stroke();
 
-      // Export at high quality
+      // 9. Texto auxiliar
+      ctx.fillStyle = "#64748B";
+      ctx.font = `${18 * scale}px system-ui, sans-serif`;
+      ctx.fillText("Escaneie para deixar seu feedback", width / 2, bottomLineY + (25 * scale));
+
+      // 10. Ornamentos nos cantos (pequenos quadrados decorativos)
+      const ornamentSize = 12 * scale;
+      const ornamentOffset = 20 * scale;
+      ctx.fillStyle = "#0F172A";
+      
+      // Canto superior esquerdo
+      ctx.fillRect(frameX + ornamentOffset, frameY + ornamentOffset, ornamentSize, ornamentSize);
+      // Canto superior direito
+      ctx.fillRect(frameX + frameW - ornamentOffset - ornamentSize, frameY + ornamentOffset, ornamentSize, ornamentSize);
+      // Canto inferior esquerdo
+      ctx.fillRect(frameX + ornamentOffset, frameY + frameH - ornamentOffset - ornamentSize, ornamentSize, ornamentSize);
+      // Canto inferior direito
+      ctx.fillRect(frameX + frameW - ornamentOffset - ornamentSize, frameY + frameH - ornamentOffset - ornamentSize, ornamentSize, ornamentSize);
+
+      // Export
       const url = exportCanvas.toDataURL("image/png", 1.0);
       const a = document.createElement("a");
       a.download = `QR-Code-${user.businessName.replace(/\s+/g, '-').toLowerCase()}.png`;
@@ -118,7 +195,7 @@ export default function Dashboard() {
       
       toast({ 
         title: "Download concluído", 
-        description: "QR Code exportado em alta resolução para impressão." 
+        description: "QR Code com moldura exportado em alta resolução." 
       });
     }
   };
