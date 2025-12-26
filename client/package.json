@@ -1,0 +1,10 @@
+{
+  "name": "fleek-client",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "cd .. && npm run build",
+    "preview": "vite preview"
+  }
+}
