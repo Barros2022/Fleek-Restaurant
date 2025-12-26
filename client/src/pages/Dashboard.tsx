@@ -17,7 +17,8 @@ import {
   Smile,
   Calendar,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Printer
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { useRef, useState } from "react";
@@ -165,6 +166,150 @@ export default function Dashboard() {
   const copyLink = () => {
     navigator.clipboard.writeText(feedbackUrl);
     toast({ title: "Copiado!", description: "Link de feedback copiado para área de transferência." });
+  };
+
+  const printQR = () => {
+    const canvas = qrRef.current?.querySelector("canvas");
+    if (canvas) {
+      // Generate the same high-res image as download
+      const exportCanvas = document.createElement("canvas");
+      const ctx = exportCanvas.getContext("2d", { alpha: false });
+      if (!ctx) return;
+
+      const scale = 4;
+      const borderWidth = 6 * scale;
+      const innerPadding = 40 * scale;
+      const qrOriginalSize = canvas.width;
+      const qrDisplaySize = qrOriginalSize * scale;
+      const cornerRadius = 16 * scale;
+      
+      const width = qrDisplaySize + (innerPadding * 2) + (borderWidth * 2);
+      const height = qrDisplaySize + (innerPadding * 2) + (180 * scale) + (borderWidth * 2);
+
+      exportCanvas.width = width;
+      exportCanvas.height = height;
+
+      ctx.fillStyle = "#1E293B";
+      ctx.beginPath();
+      ctx.roundRect(0, 0, width, height, cornerRadius);
+      ctx.fill();
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.beginPath();
+      ctx.roundRect(borderWidth, borderWidth, width - (borderWidth * 2), height - (borderWidth * 2), cornerRadius - 4);
+      ctx.fill();
+
+      ctx.fillStyle = "#0F172A";
+      ctx.font = `bold ${24 * scale}px system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText("Avalie nossa experiência", width / 2, borderWidth + (30 * scale));
+
+      const lineY = borderWidth + (70 * scale);
+      ctx.strokeStyle = "#E2E8F0";
+      ctx.lineWidth = 2 * scale;
+      ctx.beginPath();
+      ctx.moveTo(borderWidth + innerPadding, lineY);
+      ctx.lineTo(width - borderWidth - innerPadding, lineY);
+      ctx.stroke();
+
+      const qrX = (width - qrDisplaySize) / 2;
+      const qrY = borderWidth + (90 * scale);
+      
+      const qrFramePadding = 12 * scale;
+      ctx.fillStyle = "#F8FAFC";
+      ctx.beginPath();
+      ctx.roundRect(qrX - qrFramePadding, qrY - qrFramePadding, qrDisplaySize + (qrFramePadding * 2), qrDisplaySize + (qrFramePadding * 2), 8 * scale);
+      ctx.fill();
+
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(canvas, qrX, qrY, qrDisplaySize, qrDisplaySize);
+
+      ctx.fillStyle = "#0F172A";
+      ctx.font = `bold ${28 * scale}px system-ui, sans-serif`;
+      ctx.fillText(user.businessName, width / 2, qrY + qrDisplaySize + (35 * scale));
+
+      const bottomLineY = qrY + qrDisplaySize + (80 * scale);
+      ctx.strokeStyle = "#E2E8F0";
+      ctx.lineWidth = 2 * scale;
+      ctx.beginPath();
+      ctx.moveTo(borderWidth + innerPadding, bottomLineY);
+      ctx.lineTo(width - borderWidth - innerPadding, bottomLineY);
+      ctx.stroke();
+
+      ctx.fillStyle = "#64748B";
+      ctx.font = `${16 * scale}px system-ui, sans-serif`;
+      ctx.fillText("Escaneie para deixar seu feedback", width / 2, bottomLineY + (20 * scale));
+
+      const imageUrl = exportCanvas.toDataURL("image/png", 1.0);
+      
+      // Open print window with properly formatted content
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>QR Code - ${user.businessName}</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              @page { 
+                size: auto; 
+                margin: 15mm; 
+              }
+              body {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                background: white;
+                font-family: system-ui, sans-serif;
+              }
+              .container {
+                text-align: center;
+              }
+              img {
+                max-width: 100%;
+                max-height: 80vh;
+                width: auto;
+                height: auto;
+              }
+              @media print {
+                body { 
+                  min-height: auto;
+                  background: white;
+                }
+                img {
+                  max-width: 100%;
+                  max-height: 100%;
+                  page-break-inside: avoid;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <img id="qr-image" src="${imageUrl}" alt="QR Code ${user.businessName}" />
+            </div>
+            <script>
+              var img = document.getElementById('qr-image');
+              img.onload = function() {
+                window.print();
+              };
+              img.onerror = function() {
+                alert('Erro ao carregar imagem. Tente novamente.');
+              };
+              // Fallback if image is already cached
+              if (img.complete) {
+                window.print();
+              }
+            </script>
+          </body>
+          </html>
+        `);
+        printWindow.document.close();
+      }
+    }
   };
 
   const handleDeleteAll = async () => {
@@ -431,16 +576,27 @@ export default function Dashboard() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <button 
-                    onClick={downloadQR}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors shadow-md shadow-slate-900/10"
-                  >
-                    <Download className="w-4 h-4" /> Baixar
-                  </button>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={downloadQR}
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors shadow-md shadow-slate-900/10"
+                      data-testid="button-download-qr"
+                    >
+                      <Download className="w-4 h-4" /> Baixar
+                    </button>
+                    <button 
+                      onClick={printQR}
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shadow-md shadow-primary/10"
+                      data-testid="button-print-qr"
+                    >
+                      <Printer className="w-4 h-4" /> Imprimir
+                    </button>
+                  </div>
                   <button 
                     onClick={copyLink}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-border text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
+                    className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-white border border-border text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
+                    data-testid="button-copy-link"
                   >
                     <Share2 className="w-4 h-4" /> Copiar Link
                   </button>
