@@ -21,7 +21,7 @@ import {
   Printer
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -47,13 +47,18 @@ export default function Dashboard() {
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
+  useEffect(() => {
+    if (!isAuthLoading && !user) {
+      setLocation("/login");
+    }
+  }, [isAuthLoading, user, setLocation]);
+
   if (isAuthLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
   }
 
   if (!user) {
-    setLocation("/login");
-    return null;
+    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
   }
 
   const feedbackUrl = `${window.location.origin}/feedback/${user.id}`;
