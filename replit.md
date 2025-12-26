@@ -79,3 +79,41 @@ The `shared/` directory contains code used by both frontend and backend:
 ### Development Tools
 - **@replit/vite-plugin-runtime-error-modal**: Error overlay for development
 - **@replit/vite-plugin-cartographer**: Replit-specific development tooling
+
+## Deploy na Vercel
+
+### Arquivos Criados para Deploy
+- `api/index.ts`: Express serverless para Vercel
+- `vercel.json`: Configuracao do Vercel
+- `client/package.json`: Package.json do frontend
+
+### Passos para Deploy
+
+1. **Conectar ao GitHub**
+   - Faca push do codigo para um repositorio no GitHub
+
+2. **Importar no Vercel**
+   - Acesse vercel.com e faca login
+   - Clique em "Add New Project"
+   - Selecione o repositorio do GitHub
+
+3. **Configurar Variaveis de Ambiente**
+   No painel do Vercel, adicione as seguintes variaveis:
+   - `SUPABASE_DATABASE_URL`: URL de conexao do Supabase (Direct Connection, porta 5432)
+   - `SESSION_SECRET`: Uma string secreta para as sessoes (ex: gere com `openssl rand -hex 32`)
+
+4. **Deploy**
+   - Clique em "Deploy"
+   - Aguarde o build completar
+
+### Variaveis de Ambiente Necessarias
+
+| Variavel | Descricao | Exemplo |
+|----------|-----------|---------|
+| `SUPABASE_DATABASE_URL` | URL do PostgreSQL do Supabase | `postgresql://postgres.[ref]:[password]@aws-0-sa-east-1.pooler.supabase.com:5432/postgres` |
+| `SESSION_SECRET` | Chave secreta para sessoes | `sua-chave-secreta-aqui` |
+
+### Notas Importantes
+- As sessoes sao armazenadas no PostgreSQL (tabela `session` sera criada automaticamente)
+- A API roda como funcao serverless (max 10 segundos por requisicao)
+- O frontend e servido como arquivos estaticos pela CDN da Vercel
