@@ -439,10 +439,10 @@ export default function Dashboard() {
                 />
                 <StatCard 
                   title="NPS Score" 
-                  value={stats ? Math.max(1, Math.min(5, (stats.npsScore + 100) / 50 + 1)).toFixed(1) : "1.0"}
+                  value={stats && stats.totalFeedbacks > 0 ? Math.max(1, Math.min(5, (stats.npsScore + 100) / 50 + 1)).toFixed(1) : "0.0"}
                   icon={<BarChart3 className="w-5 h-5" />}
                   subtext="/ 5.0"
-                  trend={stats ? ((stats.npsScore + 100) / 50 + 1 >= 4 ? "Excelente" : (stats.npsScore + 100) / 50 + 1 >= 3 ? "Regular" : "Ruim") : undefined}
+                  trend={stats && stats.totalFeedbacks > 0 ? ((stats.npsScore + 100) / 50 + 1 >= 4 ? "Excelente" : (stats.npsScore + 100) / 50 + 1 >= 3 ? "Regular" : "Ruim") : undefined}
                   delay={0}
                 />
                 <StatCard 
