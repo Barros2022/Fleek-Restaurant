@@ -60,12 +60,55 @@ export default function Dashboard() {
   const downloadQR = () => {
     const canvas = qrRef.current?.querySelector("canvas");
     if (canvas) {
-      const url = canvas.toDataURL("image/png");
+      // Create a temporary canvas for the branded card
+      const brandCanvas = document.createElement("canvas");
+      const ctx = brandCanvas.getContext("2d");
+      if (!ctx) return;
+
+      // Card dimensions (aspect ratio for a nice print/social post)
+      const padding = 60;
+      const qrSize = canvas.width;
+      const cardWidth = qrSize + (padding * 2);
+      const cardHeight = qrSize + (padding * 2) + 100; // Extra space for text
+
+      brandCanvas.width = cardWidth;
+      brandCanvas.height = cardHeight;
+
+      // Draw background (White)
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, cardWidth, cardHeight);
+
+      // Draw Header / Brand Color Bar
+      ctx.fillStyle = "#0f172a"; // slate-900 (primary-like)
+      ctx.fillRect(0, 0, cardWidth, 12);
+
+      // Draw "Avalie nossa experiência" text
+      ctx.fillStyle = "#64748b"; // slate-500
+      ctx.font = "bold 24px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("AVALIE NOSSA EXPERIÊNCIA", cardWidth / 2, 60);
+
+      // Draw QR Code
+      ctx.drawImage(canvas, padding, 100);
+
+      // Draw Business Name
+      ctx.fillStyle = "#0f172a"; // slate-900
+      ctx.font = "bold 32px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(user.businessName.toUpperCase(), cardWidth / 2, cardHeight - 80);
+
+      // Draw Subtext
+      ctx.fillStyle = "#94a3b8"; // slate-400
+      ctx.font = "16px sans-serif";
+      ctx.fillText("Escaneie para deixar seu feedback", cardWidth / 2, cardHeight - 45);
+
+      // Download the combined image
+      const url = brandCanvas.toDataURL("image/png");
       const a = document.createElement("a");
       a.download = `${user.businessName.replace(/\s+/g, '-').toLowerCase()}-qr.png`;
       a.href = url;
       a.click();
-      toast({ title: "Baixado!", description: "QR Code salvo no seu dispositivo." });
+      toast({ title: "Baixado!", description: "QR Code com design salvo no seu dispositivo." });
     }
   };
 
