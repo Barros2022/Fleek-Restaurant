@@ -269,9 +269,7 @@ export default function Dashboard() {
                 text-align: center;
               }
               img {
-                max-width: 100%;
-                max-height: 80vh;
-                width: auto;
+                width: 280px;
                 height: auto;
               }
               @media print {
@@ -280,8 +278,8 @@ export default function Dashboard() {
                   background: white;
                 }
                 img {
-                  max-width: 100%;
-                  max-height: 100%;
+                  width: 280px;
+                  height: auto;
                   page-break-inside: avoid;
                 }
               }
