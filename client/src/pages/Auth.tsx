@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2, ArrowLeft } from "lucide-react";
@@ -21,11 +21,16 @@ type LoginData = z.infer<typeof loginSchema>;
 type RegisterData = z.infer<typeof registerSchema>;
 
 export default function AuthPage({ mode }: { mode: "login" | "register" }) {
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const { login, register, user } = useAuth();
   
+  useEffect(() => {
+    if (user) {
+      setLocation("/dashboard");
+    }
+  }, [user, setLocation]);
+
   if (user) {
-    setLocation("/dashboard");
     return null;
   }
 
