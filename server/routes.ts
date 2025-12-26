@@ -14,23 +14,34 @@ export async function registerRoutes(
   // Auth Routes
   app.post(api.auth.register.path, async (req, res, next) => {
     try {
+      console.log("[REGISTER] Attempting registration for:", req.body.username);
+      
       const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
+        console.log("[REGISTER] User already exists:", req.body.username);
         return res.status(400).json({ message: "Username already exists" });
       }
 
       const input = api.auth.register.input.parse(req.body);
       const hashedPassword = await hashPassword(input.password);
+      
+      console.log("[REGISTER] Creating user in database...");
       const user = await storage.createUser({
         ...input,
         password: hashedPassword,
       });
+      console.log("[REGISTER] User created successfully:", user.id, user.username);
 
       req.login(user, (err) => {
-        if (err) return next(err);
+        if (err) {
+          console.log("[REGISTER] Login after registration failed:", err);
+          return next(err);
+        }
+        console.log("[REGISTER] User logged in after registration");
         res.status(201).json(user);
       });
     } catch (err) {
+      console.log("[REGISTER] Error during registration:", err);
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           message: err.errors[0].message,
