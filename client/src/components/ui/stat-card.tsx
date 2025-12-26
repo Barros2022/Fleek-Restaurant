@@ -6,7 +6,7 @@ interface StatCardProps {
   value: string | number;
   icon: React.ReactNode;
   delay?: number;
-  trend?: "Excelente" | "Regular" | "Ruim";
+  trend?: "Excelente" | "Ótimo" | "Bom" | "Ruim";
   subtext?: string;
 }
 
@@ -15,8 +15,10 @@ export function StatCard({ title, value, icon, delay = 0, trend, subtext }: Stat
     switch (trend) {
       case "Excelente":
         return "bg-green-50 text-green-700";
-      case "Regular":
+      case "Ótimo":
         return "bg-yellow-50 text-yellow-700";
+      case "Bom":
+        return "bg-orange-50 text-orange-700";
       case "Ruim":
         return "bg-red-50 text-red-700";
       default:
