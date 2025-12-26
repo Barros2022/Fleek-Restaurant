@@ -60,55 +60,66 @@ export default function Dashboard() {
   const downloadQR = () => {
     const canvas = qrRef.current?.querySelector("canvas");
     if (canvas) {
-      // Create a temporary canvas for the branded card
-      const brandCanvas = document.createElement("canvas");
-      const ctx = brandCanvas.getContext("2d");
+      // Create a high-resolution off-screen canvas for export
+      const exportCanvas = document.createElement("canvas");
+      const ctx = exportCanvas.getContext("2d", { alpha: false });
       if (!ctx) return;
 
-      // Card dimensions (aspect ratio for a nice print/social post)
-      const padding = 60;
-      const qrSize = canvas.width;
-      const cardWidth = qrSize + (padding * 2);
-      const cardHeight = qrSize + (padding * 2) + 100; // Extra space for text
+      // Configuration for high-resolution print (A6-ish proportions at 300dpi approximation)
+      const scale = 4; // Scale factor for high resolution
+      const qrOriginalSize = canvas.width;
+      const margin = 80 * scale;
+      const width = (qrOriginalSize + margin * 2) * scale;
+      const height = (qrOriginalSize + margin * 2 + 150) * scale;
 
-      brandCanvas.width = cardWidth;
-      brandCanvas.height = cardHeight;
+      exportCanvas.width = width;
+      exportCanvas.height = height;
 
-      // Draw background (White)
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, cardWidth, cardHeight);
+      // Draw background (Solid White)
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, width, height);
 
-      // Draw Header / Brand Color Bar
-      ctx.fillStyle = "#0f172a"; // slate-900 (primary-like)
-      ctx.fillRect(0, 0, cardWidth, 12);
-
-      // Draw "Avalie nossa experiência" text
-      ctx.fillStyle = "#64748b"; // slate-500
-      ctx.font = "bold 24px sans-serif";
+      // 1. Título: "Avalie nossa experiência"
+      ctx.fillStyle = "#0F172A"; // slate-900
+      ctx.font = `bold ${28 * scale}px sans-serif`;
       ctx.textAlign = "center";
-      ctx.fillText("AVALIE NOSSA EXPERIÊNCIA", cardWidth / 2, 60);
+      ctx.textBaseline = "top";
+      ctx.fillText("Avalie nossa experiência", width / 2, margin * 0.8);
 
-      // Draw QR Code
-      ctx.drawImage(canvas, padding, 100);
+      // 2. QR Code centralizado em tamanho grande
+      // We draw the original canvas onto the scaled export canvas
+      const qrDisplaySize = qrOriginalSize * scale;
+      const qrX = (width - qrDisplaySize) / 2;
+      const qrY = margin * 1.8;
+      
+      // Draw white background behind QR just in case
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(qrX, qrY, qrDisplaySize, qrDisplaySize);
+      
+      ctx.imageSmoothingEnabled = false; // Keep QR sharp
+      ctx.drawImage(canvas, qrX, qrY, qrDisplaySize, qrDisplaySize);
 
-      // Draw Business Name
-      ctx.fillStyle = "#0f172a"; // slate-900
-      ctx.font = "bold 32px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(user.businessName.toUpperCase(), cardWidth / 2, cardHeight - 80);
+      // 3. Nome do restaurante
+      ctx.fillStyle = "#0F172A"; // slate-900
+      ctx.font = `bold ${36 * scale}px sans-serif`;
+      ctx.fillText(user.businessName, width / 2, qrY + qrDisplaySize + (30 * scale));
 
-      // Draw Subtext
-      ctx.fillStyle = "#94a3b8"; // slate-400
-      ctx.font = "16px sans-serif";
-      ctx.fillText("Escaneie para deixar seu feedback", cardWidth / 2, cardHeight - 45);
+      // 4. Texto auxiliar: "Escaneie para deixar seu feedback"
+      ctx.fillStyle = "#64748B"; // slate-500
+      ctx.font = `${18 * scale}px sans-serif`;
+      ctx.fillText("Escaneie para deixar seu feedback", width / 2, qrY + qrDisplaySize + (85 * scale));
 
-      // Download the combined image
-      const url = brandCanvas.toDataURL("image/png");
+      // Export at high quality
+      const url = exportCanvas.toDataURL("image/png", 1.0);
       const a = document.createElement("a");
-      a.download = `${user.businessName.replace(/\s+/g, '-').toLowerCase()}-qr.png`;
+      a.download = `QR-Code-${user.businessName.replace(/\s+/g, '-').toLowerCase()}.png`;
       a.href = url;
       a.click();
-      toast({ title: "Baixado!", description: "QR Code com design salvo no seu dispositivo." });
+      
+      toast({ 
+        title: "Download concluído", 
+        description: "QR Code exportado em alta resolução para impressão." 
+      });
     }
   };
 
