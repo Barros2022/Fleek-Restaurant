@@ -102,8 +102,9 @@ export async function registerRoutes(
         used: false,
       });
 
-      // Build reset link
-      const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
+      // Build reset link - use x-forwarded-proto for proxied environments (Replit, Vercel)
+      const protocol = req.get("x-forwarded-proto") || req.protocol || "https";
+      const baseUrl = process.env.BASE_URL || `${protocol}://${req.get("host")}`;
       const resetLink = `${baseUrl}/reset-password/${token}`;
 
       res.json({

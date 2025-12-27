@@ -34,7 +34,13 @@ export default function ForgotPassword() {
     },
     onSuccess: (data) => {
       if (data.resetLink) {
-        setResetLink(data.resetLink);
+        try {
+          const url = new URL(data.resetLink);
+          setResetLink(url.pathname);
+        } catch {
+          const pathMatch = data.resetLink.match(/\/reset-password\/[a-f0-9]+$/);
+          setResetLink(pathMatch ? pathMatch[0] : data.resetLink);
+        }
         toast({
           title: "Link gerado",
           description: "Use o link abaixo para redefinir sua senha.",
@@ -52,7 +58,8 @@ export default function ForgotPassword() {
 
   const copyLink = async () => {
     if (resetLink) {
-      await navigator.clipboard.writeText(resetLink);
+      const fullLink = `${window.location.origin}${resetLink}`;
+      await navigator.clipboard.writeText(fullLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       toast({
@@ -116,7 +123,7 @@ export default function ForgotPassword() {
                 </p>
                 <div className="flex flex-col gap-3">
                   <Link 
-                    href={resetLink.replace(window.location.origin, '')}
+                    href={resetLink}
                     className="w-full py-3 px-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl text-center transition-all"
                     data-testid="link-reset"
                   >
