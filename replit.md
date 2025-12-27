@@ -25,6 +25,7 @@ Preferred communication style: Simple, everyday language.
 The frontend follows a page-based structure with reusable components. Key pages include:
 - Landing page (marketing/home)
 - Authentication pages (login/register)
+- Password reset pages (forgot-password, reset-password)
 - Dashboard (protected, for business owners)
 - Public feedback form (accessible via QR code)
 
@@ -37,6 +38,7 @@ The frontend follows a page-based structure with reusable components. Key pages 
 
 The server handles:
 - User registration and authentication
+- Password reset with secure token generation
 - Feedback submission and retrieval
 - Statistics calculation (NPS scores, category averages)
 - Static file serving in production
@@ -49,6 +51,7 @@ The server handles:
 Database tables:
 - `users`: Business accounts (id, username/email, password, businessName, createdAt)
 - `feedbacks`: Customer ratings (id, userId, npsScore, ratingFood, ratingService, ratingWaitTime, ratingAmbiance, comment, createdAt)
+- `password_reset_tokens`: Password reset tokens (id, userId, token, expiresAt, used, createdAt)
 
 ### Shared Code Structure
 The `shared/` directory contains code used by both frontend and backend:
