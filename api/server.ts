@@ -2,7 +2,6 @@ import express, { type Request, Response, NextFunction } from "express";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { z } from "zod";
@@ -190,14 +189,7 @@ async function comparePasswords(supplied: string, stored: string) {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-const PgSession = connectPgSimple(session);
-
 app.use(session({
-  store: new PgSession({
-    pool,
-    tableName: 'session',
-    createTableIfMissing: true
-  }),
   secret: process.env.SESSION_SECRET || "secret",
   resave: false,
   saveUninitialized: false,
