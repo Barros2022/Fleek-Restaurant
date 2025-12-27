@@ -15,6 +15,7 @@ import {
   serial,
   integer,
   timestamp,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
@@ -46,6 +47,15 @@ export const feedbacks = pgTable("feedbacks", {
   ratingWaitTime: integer("rating_wait_time").notNull(),
   ratingAmbiance: integer("rating_ambiance").notNull(),
   comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -143,6 +153,24 @@ const storage = {
 
   async deleteUserFeedbacks(userId: number): Promise<void> {
     await db.delete(feedbacks).where(eq(feedbacks.userId, userId));
+  },
+
+  async createPasswordResetToken(data: { userId: number; token: string; expiresAt: Date; used: boolean }) {
+    const [token] = await db.insert(passwordResetTokens).values(data).returning();
+    return token;
+  },
+
+  async getPasswordResetToken(token: string) {
+    const [resetToken] = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+    return resetToken;
+  },
+
+  async markTokenAsUsed(id: number) {
+    await db.update(passwordResetTokens).set({ used: true }).where(eq(passwordResetTokens.id, id));
+  },
+
+  async updateUserPassword(userId: number, hashedPassword: string) {
+    await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
   }
 };
 
@@ -269,6 +297,71 @@ app.get("/api/user", (req, res) => {
     res.json(req.user);
   } else {
     res.status(401).json({ message: "Not authenticated" });
+  }
+});
+
+app.post("/api/forgot-password", async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "E-mail é obrigatório" });
+    }
+
+    const user = await storage.getUserByUsername(email);
+    if (!user) {
+      return res.status(404).json({ message: "E-mail não encontrado" });
+    }
+
+    const token = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    await storage.createPasswordResetToken({
+      userId: user.id,
+      token,
+      expiresAt,
+      used: false,
+    });
+
+    const protocol = req.get("x-forwarded-proto") || req.protocol || "https";
+    const baseUrl = process.env.BASE_URL || `${protocol}://${req.get("host")}`;
+    const resetLink = `${baseUrl}/reset-password/${token}`;
+
+    res.json({
+      message: "Link de redefinição gerado com sucesso",
+      resetLink,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post("/api/reset-password", async (req, res, next) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: "Token e nova senha são obrigatórios" });
+    }
+
+    const resetToken = await storage.getPasswordResetToken(token);
+    if (!resetToken) {
+      return res.status(404).json({ message: "Token inválido ou expirado" });
+    }
+
+    if (resetToken.used) {
+      return res.status(400).json({ message: "Este link já foi utilizado" });
+    }
+
+    if (new Date() > resetToken.expiresAt) {
+      return res.status(400).json({ message: "Token expirado. Solicite um novo link." });
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+    await storage.updateUserPassword(resetToken.userId, hashedPassword);
+    await storage.markTokenAsUsed(resetToken.id);
+
+    res.json({ message: "Senha redefinida com sucesso" });
+  } catch (err) {
+    next(err);
   }
 });
 
