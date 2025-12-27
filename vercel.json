@@ -7,6 +7,10 @@
     {
       "source": "/api/:path*",
       "destination": "/api"
+    },
+    {
+      "source": "/((?!api|assets|_next|.*\\..*).*)",
+      "destination": "/index.html"
     }
   ],
   "functions": {
