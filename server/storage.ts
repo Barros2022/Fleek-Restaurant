@@ -1,4 +1,4 @@
-import { users, feedbacks, type User, type InsertUser, type Feedback, type InsertFeedback } from "@shared/schema";
+import { users, feedbacks, passwordResetTokens, type User, type InsertUser, type Feedback, type InsertFeedback, type PasswordResetToken, type InsertPasswordResetToken } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, gte, and } from "drizzle-orm";
 
@@ -6,6 +6,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserPassword(userId: number, hashedPassword: string): Promise<void>;
 
   createFeedback(feedback: InsertFeedback): Promise<Feedback>;
   getFeedbacks(userId: number, days?: number): Promise<Feedback[]>;
@@ -21,6 +22,10 @@ export interface IStorage {
     detractors: number
   }>;
   deleteUserFeedbacks(userId: number): Promise<void>;
+
+  createPasswordResetToken(token: InsertPasswordResetToken): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  markTokenAsUsed(tokenId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -121,6 +126,24 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUserFeedbacks(userId: number): Promise<void> {
     await db.delete(feedbacks).where(eq(feedbacks.userId, userId));
+  }
+
+  async updateUserPassword(userId: number, hashedPassword: string): Promise<void> {
+    await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
+  }
+
+  async createPasswordResetToken(token: InsertPasswordResetToken): Promise<PasswordResetToken> {
+    const [newToken] = await db.insert(passwordResetTokens).values(token).returning();
+    return newToken;
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const [resetToken] = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+    return resetToken;
+  }
+
+  async markTokenAsUsed(tokenId: number): Promise<void> {
+    await db.update(passwordResetTokens).set({ used: true }).where(eq(passwordResetTokens.id, tokenId));
   }
 }
 

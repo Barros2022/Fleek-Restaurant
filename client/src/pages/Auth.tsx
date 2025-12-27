@@ -124,12 +124,20 @@ function LoginForm({ onSubmit, isPending }: { onSubmit: (data: LoginData) => voi
       <div className="space-y-2">
         <div className="flex justify-between">
           <label className="text-sm font-medium text-slate-900">Senha</label>
+          <Link 
+            href="/forgot-password" 
+            className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+            data-testid="link-forgot-password"
+          >
+            Esqueci minha senha
+          </Link>
         </div>
         <input
           {...register("password")}
           type="password"
           className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all"
           placeholder="••••••••"
+          data-testid="input-password"
         />
         {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
       </div>
@@ -138,6 +146,7 @@ function LoginForm({ onSubmit, isPending }: { onSubmit: (data: LoginData) => voi
         type="submit"
         disabled={isPending}
         className="w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl shadow-lg shadow-slate-900/20 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center"
+        data-testid="button-login"
       >
         {isPending ? <Loader2 className="animate-spin w-5 h-5" /> : "Entrar na conta"}
       </button>

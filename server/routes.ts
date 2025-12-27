@@ -4,6 +4,7 @@ import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { api, errorSchemas } from "@shared/routes";
 import { z } from "zod";
+import { randomBytes } from "crypto";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -77,6 +78,80 @@ export async function registerRoutes(
       res.json(req.user);
     } else {
       res.status(401).json({ message: "Not authenticated" });
+    }
+  });
+
+  // Password Reset Routes
+  app.post(api.auth.forgotPassword.path, async (req, res, next) => {
+    try {
+      const input = api.auth.forgotPassword.input.parse(req.body);
+      const user = await storage.getUserByUsername(input.email);
+      
+      if (!user) {
+        return res.status(404).json({ message: "E-mail não encontrado" });
+      }
+
+      // Generate a random token
+      const token = randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiration
+
+      await storage.createPasswordResetToken({
+        userId: user.id,
+        token,
+        expiresAt,
+        used: false,
+      });
+
+      // Build reset link
+      const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
+      const resetLink = `${baseUrl}/reset-password/${token}`;
+
+      res.json({
+        message: "Link de redefinição gerado com sucesso",
+        resetLink,
+      });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      next(err);
+    }
+  });
+
+  app.post(api.auth.resetPassword.path, async (req, res, next) => {
+    try {
+      const input = api.auth.resetPassword.input.parse(req.body);
+      const resetToken = await storage.getPasswordResetToken(input.token);
+
+      if (!resetToken) {
+        return res.status(404).json({ message: "Token inválido ou expirado" });
+      }
+
+      if (resetToken.used) {
+        return res.status(400).json({ message: "Este link já foi utilizado" });
+      }
+
+      if (new Date() > resetToken.expiresAt) {
+        return res.status(400).json({ message: "Token expirado. Solicite um novo link." });
+      }
+
+      // Hash new password and update user
+      const hashedPassword = await hashPassword(input.newPassword);
+      await storage.updateUserPassword(resetToken.userId, hashedPassword);
+      await storage.markTokenAsUsed(resetToken.id);
+
+      res.json({ message: "Senha redefinida com sucesso" });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      next(err);
     }
   });
 

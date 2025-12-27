@@ -55,6 +55,35 @@ export const api = {
         401: errorSchemas.unauthorized,
       },
     },
+    forgotPassword: {
+      method: 'POST' as const,
+      path: '/api/forgot-password',
+      input: z.object({
+        email: z.string().email(),
+      }),
+      responses: {
+        200: z.object({
+          message: z.string(),
+          resetLink: z.string().optional(),
+        }),
+        404: errorSchemas.notFound,
+      },
+    },
+    resetPassword: {
+      method: 'POST' as const,
+      path: '/api/reset-password',
+      input: z.object({
+        token: z.string(),
+        newPassword: z.string().min(6),
+      }),
+      responses: {
+        200: z.object({
+          message: z.string(),
+        }),
+        400: errorSchemas.validation,
+        404: errorSchemas.notFound,
+      },
+    },
   },
   feedbacks: {
     submit: {

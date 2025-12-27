@@ -8,6 +8,8 @@ import Landing from "@/pages/Landing";
 import AuthPage from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import PublicFeedback from "@/pages/PublicFeedback";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 
 function Router() {
   return (
@@ -17,6 +19,8 @@ function Router() {
       <Route path="/register" component={() => <AuthPage mode="register" />} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/feedback/:userId" component={PublicFeedback} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password/:token" component={ResetPassword} />
       <Route component={NotFound} />
     </Switch>
   );
