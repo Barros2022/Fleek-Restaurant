@@ -64,15 +64,19 @@ async function buildAll() {
   await esbuild({
     entryPoints: ["api/server.ts"],
     platform: "node",
+    target: "node18",
     bundle: true,
     format: "cjs",
-    outfile: "api/index.js",
+    outfile: "api/index.cjs",
     define: {
       "process.env.NODE_ENV": '"production"',
     },
     minify: false,
     external: externals,
     logLevel: "info",
+    banner: {
+      js: '"use strict";'
+    }
   });
 }
 

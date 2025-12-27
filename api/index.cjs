@@ -1,4 +1,5 @@
 "use strict";
+"use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -7,10 +8,6 @@ var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-};
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except2, desc2) => {
   if (from && typeof from === "object" || typeof from === "function") {
@@ -28,7 +25,6 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // node_modules/depd/index.js
 var require_depd = __commonJS({
@@ -30699,16 +30695,6 @@ var require_lib7 = __commonJS({
 });
 
 // api/server.ts
-var server_exports = {};
-__export(server_exports, {
-  default: () => server_default,
-  feedbacks: () => feedbacks,
-  insertFeedbackSchema: () => insertFeedbackSchema,
-  insertUserSchema: () => insertUserSchema,
-  passwordResetTokens: () => passwordResetTokens,
-  users: () => users
-});
-module.exports = __toCommonJS(server_exports);
 var import_express = __toESM(require_express2(), 1);
 var import_passport = __toESM(require_lib4(), 1);
 var import_passport_local = __toESM(require_lib5(), 1);
@@ -41896,15 +41882,7 @@ app.use((err, _req, res, _next) => {
   const message = err.message || "Internal Server Error";
   res.status(status).json({ message });
 });
-var server_default = app;
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  feedbacks,
-  insertFeedbackSchema,
-  insertUserSchema,
-  passwordResetTokens,
-  users
-});
+module.exports = app;
 /*! Bundled license information:
 
 depd/index.js:

@@ -29,7 +29,7 @@ const pool = new Pool({
 
 const db = drizzle(pool);
 
-export const users = pgTable("users", {
+const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
@@ -37,7 +37,7 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const feedbacks = pgTable("feedbacks", {
+const feedbacks = pgTable("feedbacks", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   npsScore: integer("nps_score").notNull(),
@@ -49,7 +49,7 @@ export const feedbacks = pgTable("feedbacks", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const passwordResetTokens = pgTable("password_reset_tokens", {
+const passwordResetTokens = pgTable("password_reset_tokens", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   token: text("token").notNull().unique(),
@@ -58,8 +58,8 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
-export const insertFeedbackSchema = createInsertSchema(feedbacks).omit({ id: true, createdAt: true });
+const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
+const insertFeedbackSchema = createInsertSchema(feedbacks).omit({ id: true, createdAt: true });
 
 type User = typeof users.$inferSelect;
 type InsertUser = z.infer<typeof insertUserSchema>;
@@ -414,4 +414,4 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   res.status(status).json({ message });
 });
 
-export default app;
+module.exports = app;
