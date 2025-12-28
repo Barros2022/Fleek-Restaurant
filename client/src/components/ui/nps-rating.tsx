@@ -9,17 +9,27 @@ interface NPSRatingProps {
 export function NPSRating({ value, onChange, label }: NPSRatingProps) {
   return (
     <div className="space-y-4">
-      {label && <label className="text-lg font-medium text-slate-900 block text-center">{label}</label>}
+      {label && (
+        <label className="text-base font-semibold text-slate-800 block text-center">
+          {label}
+        </label>
+      )}
       
-      <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto">
+      <div className="grid grid-cols-6 gap-2 max-w-sm mx-auto">
         {Array.from({ length: 11 }, (_, i) => i).map((score) => {
           const isSelected = value === score;
-          let colorClass = "hover:bg-slate-100 border-slate-200 text-slate-600";
+          
+          let bgClass = "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:border-slate-300";
+          let selectedBgClass = "";
           
           if (isSelected) {
-            if (score <= 6) colorClass = "bg-red-500 border-red-500 text-white hover:bg-red-600";
-            else if (score <= 8) colorClass = "bg-yellow-500 border-yellow-500 text-white hover:bg-yellow-600";
-            else colorClass = "bg-green-500 border-green-500 text-white hover:bg-green-600";
+            if (score <= 6) {
+              selectedBgClass = "bg-gradient-to-br from-red-500 to-rose-500 border-red-500 text-white shadow-lg shadow-red-200";
+            } else if (score <= 8) {
+              selectedBgClass = "bg-gradient-to-br from-amber-500 to-yellow-500 border-amber-500 text-white shadow-lg shadow-amber-200";
+            } else {
+              selectedBgClass = "bg-gradient-to-br from-emerald-500 to-green-500 border-emerald-500 text-white shadow-lg shadow-emerald-200";
+            }
           }
 
           return (
@@ -27,10 +37,11 @@ export function NPSRating({ value, onChange, label }: NPSRatingProps) {
               key={score}
               type="button"
               onClick={() => onChange(score)}
+              data-testid={`nps-score-${score}`}
               className={cn(
-                "w-10 h-10 sm:w-12 sm:h-12 rounded-xl border-2 font-bold text-lg transition-all duration-200 flex items-center justify-center",
-                colorClass,
-                isSelected ? "scale-110 shadow-lg ring-2 ring-offset-2 ring-transparent" : "scale-100"
+                "aspect-square rounded-xl border-2 font-bold text-base transition-all duration-200 flex items-center justify-center active:scale-95",
+                isSelected ? selectedBgClass : bgClass,
+                isSelected && "scale-105"
               )}
             >
               {score}
@@ -39,9 +50,9 @@ export function NPSRating({ value, onChange, label }: NPSRatingProps) {
         })}
       </div>
       
-      <div className="flex justify-between text-xs text-muted-foreground px-2 max-w-md mx-auto">
-        <span>Nada provável</span>
-        <span>Extremamente provável</span>
+      <div className="flex justify-between text-xs text-slate-400 px-1 max-w-sm mx-auto">
+        <span>Nada provavel</span>
+        <span>Muito provavel</span>
       </div>
     </div>
   );

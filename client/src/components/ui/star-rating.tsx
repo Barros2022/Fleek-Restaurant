@@ -5,24 +5,34 @@ interface StarRatingProps {
   value: number;
   onChange: (value: number) => void;
   label?: string;
+  compact?: boolean;
 }
 
-export function StarRating({ value, onChange, label }: StarRatingProps) {
+export function StarRating({ value, onChange, label, compact = false }: StarRatingProps) {
   return (
     <div className="flex flex-col gap-2">
       {label && <label className="text-sm font-medium text-slate-700">{label}</label>}
-      <div className="flex gap-1">
+      <div className={cn("flex", compact ? "gap-0.5 justify-center" : "gap-1")}>
         {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
             type="button"
             onClick={() => onChange(star)}
+            data-testid={`star-rating-${star}`}
             className={cn(
-              "p-2 transition-transform hover:scale-110 focus:outline-none",
-              star <= value ? "text-yellow-400" : "text-slate-200"
+              "transition-all duration-200 focus:outline-none active:scale-90",
+              compact ? "p-0.5" : "p-1.5 hover:scale-110"
             )}
           >
-            <Star className={cn("w-8 h-8", star <= value ? "fill-current" : "fill-none")} />
+            <Star 
+              className={cn(
+                "transition-colors duration-200",
+                compact ? "w-6 h-6" : "w-8 h-8",
+                star <= value 
+                  ? "fill-amber-400 text-amber-400 drop-shadow-sm" 
+                  : "fill-slate-200 text-slate-200"
+              )} 
+            />
           </button>
         ))}
       </div>
