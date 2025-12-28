@@ -3,12 +3,36 @@ import { useBusinessInfo, useSubmitFeedback } from "@/hooks/use-feedbacks";
 import { Loader2, CheckCircle2, Utensils, Users, Clock, Sparkles, MessageSquare } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertFeedbackSchema } from "@shared/schema";
 import { StarRating } from "@/components/ui/star-rating";
 import { NPSRating } from "@/components/ui/nps-rating";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import type { InsertFeedback } from "@shared/schema";
+import { z } from "zod";
+
+const feedbackFormSchema = z.object({
+  userId: z.number(),
+  npsScore: z.number({ 
+    required_error: "Por favor, selecione uma nota",
+    invalid_type_error: "Por favor, selecione uma nota" 
+  }).min(0).max(10).nullable().refine((val) => val !== null, {
+    message: "Por favor, selecione uma nota"
+  }),
+  ratingFood: z.number().min(1, "Avaliacao obrigatoria"),
+  ratingService: z.number().min(1, "Avaliacao obrigatoria"),
+  ratingWaitTime: z.number().min(1, "Avaliacao obrigatoria"),
+  ratingAmbiance: z.number().min(1, "Avaliacao obrigatoria"),
+  comment: z.string().optional().nullable(),
+});
+
+type FeedbackFormInput = {
+  userId: number;
+  npsScore: number | null;
+  ratingFood: number;
+  ratingService: number;
+  ratingWaitTime: number;
+  ratingAmbiance: number;
+  comment?: string | null;
+};
 
 export default function PublicFeedback() {
   const [, params] = useRoute("/feedback/:userId");
@@ -18,30 +42,40 @@ export default function PublicFeedback() {
   const submitFeedback = useSubmitFeedback();
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const { control, handleSubmit, register, formState: { errors }, watch } = useForm<InsertFeedback>({
-    resolver: zodResolver(insertFeedbackSchema),
+  const { control, handleSubmit, register, formState: { errors }, watch } = useForm<FeedbackFormInput>({
+    resolver: zodResolver(feedbackFormSchema),
     defaultValues: {
       userId: userId,
       ratingFood: 0,
       ratingService: 0,
       ratingWaitTime: 0,
       ratingAmbiance: 0,
-      npsScore: undefined,
+      npsScore: null,
       comment: ""
     }
   });
 
   const watchedValues = watch();
   const completedSteps = [
-    watchedValues.npsScore !== undefined,
+    watchedValues.npsScore !== null,
     (watchedValues.ratingFood ?? 0) > 0,
     (watchedValues.ratingService ?? 0) > 0,
     (watchedValues.ratingWaitTime ?? 0) > 0,
     (watchedValues.ratingAmbiance ?? 0) > 0,
   ].filter(Boolean).length;
 
-  const onSubmit = (data: InsertFeedback) => {
-    submitFeedback.mutate(data, {
+  const onSubmit = (data: FeedbackFormInput) => {
+    if (data.npsScore === null) return;
+    
+    submitFeedback.mutate({
+      userId: data.userId,
+      npsScore: data.npsScore,
+      ratingFood: data.ratingFood,
+      ratingService: data.ratingService,
+      ratingWaitTime: data.ratingWaitTime,
+      ratingAmbiance: data.ratingAmbiance,
+      comment: data.comment || undefined,
+    }, {
       onSuccess: () => setIsSubmitted(true)
     });
   };
