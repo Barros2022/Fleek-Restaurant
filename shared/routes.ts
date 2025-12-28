@@ -139,7 +139,7 @@ export const api = {
   public: {
     business: {
       method: 'GET' as const,
-      path: '/api/public/business/:id', // To get business name for the public form
+      path: '/api/business/:id', // To get business name for the public form
       responses: {
         200: z.object({
           businessName: z.string(),

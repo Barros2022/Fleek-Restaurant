@@ -8,7 +8,7 @@ import { StarRating } from "@/components/ui/star-rating";
 import { NPSRating } from "@/components/ui/nps-rating";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { InsertFeedback } from "@shared/routes";
+import type { InsertFeedback } from "@shared/schema";
 
 export default function PublicFeedback() {
   const [, params] = useRoute("/feedback/:userId");
