@@ -23511,2264 +23511,3694 @@ var require_express2 = __commonJS({
   }
 });
 
-// node_modules/pause/index.js
-var require_pause = __commonJS({
-  "node_modules/pause/index.js"(exports2, module2) {
-    module2.exports = function(obj) {
-      var onData, onEnd, events = [];
-      obj.on("data", onData = function(data, encoding) {
-        events.push(["data", data, encoding]);
-      });
-      obj.on("end", onEnd = function(data, encoding) {
-        events.push(["end", data, encoding]);
-      });
-      return {
-        end: function() {
-          obj.removeListener("data", onData);
-          obj.removeListener("end", onEnd);
-        },
-        resume: function() {
-          this.end();
-          for (var i = 0, len = events.length; i < len; ++i) {
-            obj.emit.apply(obj, events[i]);
-          }
-        }
-      };
-    };
-  }
-});
-
-// node_modules/passport-strategy/lib/strategy.js
-var require_strategy = __commonJS({
-  "node_modules/passport-strategy/lib/strategy.js"(exports2, module2) {
-    function Strategy() {
-    }
-    Strategy.prototype.authenticate = function(req, options) {
-      throw new Error("Strategy#authenticate must be overridden by subclass");
-    };
-    module2.exports = Strategy;
-  }
-});
-
-// node_modules/passport-strategy/lib/index.js
-var require_lib3 = __commonJS({
-  "node_modules/passport-strategy/lib/index.js"(exports2, module2) {
-    var Strategy = require_strategy();
-    exports2 = module2.exports = Strategy;
-    exports2.Strategy = Strategy;
-  }
-});
-
-// node_modules/passport/lib/strategies/session.js
-var require_session = __commonJS({
-  "node_modules/passport/lib/strategies/session.js"(exports2, module2) {
-    var pause = require_pause();
+// node_modules/jws/lib/data-stream.js
+var require_data_stream = __commonJS({
+  "node_modules/jws/lib/data-stream.js"(exports2, module2) {
+    var Buffer2 = require_safe_buffer().Buffer;
+    var Stream = require("stream");
     var util2 = require("util");
-    var Strategy = require_lib3();
-    function SessionStrategy(options, deserializeUser) {
-      if (typeof options == "function") {
-        deserializeUser = options;
-        options = void 0;
+    function DataStream(data) {
+      this.buffer = null;
+      this.writable = true;
+      this.readable = true;
+      if (!data) {
+        this.buffer = Buffer2.alloc(0);
+        return this;
       }
-      options = options || {};
-      Strategy.call(this);
-      this.name = "session";
-      this._key = options.key || "passport";
-      this._deserializeUser = deserializeUser;
+      if (typeof data.pipe === "function") {
+        this.buffer = Buffer2.alloc(0);
+        data.pipe(this);
+        return this;
+      }
+      if (data.length || typeof data === "object") {
+        this.buffer = data;
+        this.writable = false;
+        process.nextTick(function() {
+          this.emit("end", data);
+          this.readable = false;
+          this.emit("close");
+        }.bind(this));
+        return this;
+      }
+      throw new TypeError("Unexpected data type (" + typeof data + ")");
     }
-    util2.inherits(SessionStrategy, Strategy);
-    SessionStrategy.prototype.authenticate = function(req, options) {
-      if (!req.session) {
-        return this.error(new Error("Login sessions require session support. Did you forget to use `express-session` middleware?"));
-      }
-      options = options || {};
-      var self = this, su;
-      if (req.session[this._key]) {
-        su = req.session[this._key].user;
-      }
-      if (su || su === 0) {
-        var paused = options.pauseStream ? pause(req) : null;
-        this._deserializeUser(su, req, function(err, user) {
-          if (err) {
-            return self.error(err);
-          }
-          if (!user) {
-            delete req.session[self._key].user;
-          } else {
-            var property = req._userProperty || "user";
-            req[property] = user;
-          }
-          self.pass();
-          if (paused) {
-            paused.resume();
-          }
-        });
-      } else {
-        self.pass();
-      }
+    util2.inherits(DataStream, Stream);
+    DataStream.prototype.write = function write(data) {
+      this.buffer = Buffer2.concat([this.buffer, Buffer2.from(data)]);
+      this.emit("data", data);
     };
-    module2.exports = SessionStrategy;
+    DataStream.prototype.end = function end(data) {
+      if (data)
+        this.write(data);
+      this.emit("end", data);
+      this.emit("close");
+      this.writable = false;
+      this.readable = false;
+    };
+    module2.exports = DataStream;
   }
 });
 
-// node_modules/passport/lib/sessionmanager.js
-var require_sessionmanager = __commonJS({
-  "node_modules/passport/lib/sessionmanager.js"(exports2, module2) {
-    var merge = require_utils_merge();
-    function SessionManager(options, serializeUser) {
-      if (typeof options == "function") {
-        serializeUser = options;
-        options = void 0;
-      }
-      options = options || {};
-      this._key = options.key || "passport";
-      this._serializeUser = serializeUser;
+// node_modules/ecdsa-sig-formatter/src/param-bytes-for-alg.js
+var require_param_bytes_for_alg = __commonJS({
+  "node_modules/ecdsa-sig-formatter/src/param-bytes-for-alg.js"(exports2, module2) {
+    "use strict";
+    function getParamSize(keySize) {
+      var result = (keySize / 8 | 0) + (keySize % 8 === 0 ? 0 : 1);
+      return result;
     }
-    SessionManager.prototype.logIn = function(req, user, options, cb) {
-      if (typeof options == "function") {
-        cb = options;
-        options = {};
-      }
-      options = options || {};
-      if (!req.session) {
-        return cb(new Error("Login sessions require session support. Did you forget to use `express-session` middleware?"));
-      }
-      var self = this;
-      var prevSession = req.session;
-      req.session.regenerate(function(err) {
-        if (err) {
-          return cb(err);
-        }
-        self._serializeUser(user, req, function(err2, obj) {
-          if (err2) {
-            return cb(err2);
-          }
-          if (options.keepSessionInfo) {
-            merge(req.session, prevSession);
-          }
-          if (!req.session[self._key]) {
-            req.session[self._key] = {};
-          }
-          req.session[self._key].user = obj;
-          req.session.save(function(err3) {
-            if (err3) {
-              return cb(err3);
-            }
-            cb();
-          });
-        });
-      });
+    var paramBytesForAlg = {
+      ES256: getParamSize(256),
+      ES384: getParamSize(384),
+      ES512: getParamSize(521)
     };
-    SessionManager.prototype.logOut = function(req, options, cb) {
-      if (typeof options == "function") {
-        cb = options;
-        options = {};
+    function getParamBytesForAlg(alg) {
+      var paramBytes = paramBytesForAlg[alg];
+      if (paramBytes) {
+        return paramBytes;
       }
-      options = options || {};
-      if (!req.session) {
-        return cb(new Error("Login sessions require session support. Did you forget to use `express-session` middleware?"));
-      }
-      var self = this;
-      if (req.session[this._key]) {
-        delete req.session[this._key].user;
-      }
-      var prevSession = req.session;
-      req.session.save(function(err) {
-        if (err) {
-          return cb(err);
-        }
-        req.session.regenerate(function(err2) {
-          if (err2) {
-            return cb(err2);
-          }
-          if (options.keepSessionInfo) {
-            merge(req.session, prevSession);
-          }
-          cb();
-        });
-      });
-    };
-    module2.exports = SessionManager;
+      throw new Error('Unknown algorithm "' + alg + '"');
+    }
+    module2.exports = getParamBytesForAlg;
   }
 });
 
-// node_modules/passport/lib/http/request.js
-var require_request2 = __commonJS({
-  "node_modules/passport/lib/http/request.js"(exports2, module2) {
-    var req = exports2 = module2.exports = {};
-    req.login = req.logIn = function(user, options, done) {
-      if (typeof options == "function") {
-        done = options;
-        options = {};
+// node_modules/ecdsa-sig-formatter/src/ecdsa-sig-formatter.js
+var require_ecdsa_sig_formatter = __commonJS({
+  "node_modules/ecdsa-sig-formatter/src/ecdsa-sig-formatter.js"(exports2, module2) {
+    "use strict";
+    var Buffer2 = require_safe_buffer().Buffer;
+    var getParamBytesForAlg = require_param_bytes_for_alg();
+    var MAX_OCTET = 128;
+    var CLASS_UNIVERSAL = 0;
+    var PRIMITIVE_BIT = 32;
+    var TAG_SEQ = 16;
+    var TAG_INT = 2;
+    var ENCODED_TAG_SEQ = TAG_SEQ | PRIMITIVE_BIT | CLASS_UNIVERSAL << 6;
+    var ENCODED_TAG_INT = TAG_INT | CLASS_UNIVERSAL << 6;
+    function base64Url(base64) {
+      return base64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    }
+    function signatureAsBuffer(signature) {
+      if (Buffer2.isBuffer(signature)) {
+        return signature;
+      } else if ("string" === typeof signature) {
+        return Buffer2.from(signature, "base64");
       }
-      options = options || {};
-      var property = this._userProperty || "user";
-      var session2 = options.session === void 0 ? true : options.session;
-      this[property] = user;
-      if (session2 && this._sessionManager) {
-        if (typeof done != "function") {
-          throw new Error("req#login requires a callback function");
-        }
-        var self = this;
-        this._sessionManager.logIn(this, user, options, function(err) {
-          if (err) {
-            self[property] = null;
-            return done(err);
-          }
-          done();
-        });
+      throw new TypeError("ECDSA signature must be a Base64 string or a Buffer");
+    }
+    function derToJose(signature, alg) {
+      signature = signatureAsBuffer(signature);
+      var paramBytes = getParamBytesForAlg(alg);
+      var maxEncodedParamLength = paramBytes + 1;
+      var inputLength = signature.length;
+      var offset = 0;
+      if (signature[offset++] !== ENCODED_TAG_SEQ) {
+        throw new Error('Could not find expected "seq"');
+      }
+      var seqLength = signature[offset++];
+      if (seqLength === (MAX_OCTET | 1)) {
+        seqLength = signature[offset++];
+      }
+      if (inputLength - offset < seqLength) {
+        throw new Error('"seq" specified length of "' + seqLength + '", only "' + (inputLength - offset) + '" remaining');
+      }
+      if (signature[offset++] !== ENCODED_TAG_INT) {
+        throw new Error('Could not find expected "int" for "r"');
+      }
+      var rLength = signature[offset++];
+      if (inputLength - offset - 2 < rLength) {
+        throw new Error('"r" specified length of "' + rLength + '", only "' + (inputLength - offset - 2) + '" available');
+      }
+      if (maxEncodedParamLength < rLength) {
+        throw new Error('"r" specified length of "' + rLength + '", max of "' + maxEncodedParamLength + '" is acceptable');
+      }
+      var rOffset = offset;
+      offset += rLength;
+      if (signature[offset++] !== ENCODED_TAG_INT) {
+        throw new Error('Could not find expected "int" for "s"');
+      }
+      var sLength = signature[offset++];
+      if (inputLength - offset !== sLength) {
+        throw new Error('"s" specified length of "' + sLength + '", expected "' + (inputLength - offset) + '"');
+      }
+      if (maxEncodedParamLength < sLength) {
+        throw new Error('"s" specified length of "' + sLength + '", max of "' + maxEncodedParamLength + '" is acceptable');
+      }
+      var sOffset = offset;
+      offset += sLength;
+      if (offset !== inputLength) {
+        throw new Error('Expected to consume entire buffer, but "' + (inputLength - offset) + '" bytes remain');
+      }
+      var rPadding = paramBytes - rLength, sPadding = paramBytes - sLength;
+      var dst = Buffer2.allocUnsafe(rPadding + rLength + sPadding + sLength);
+      for (offset = 0; offset < rPadding; ++offset) {
+        dst[offset] = 0;
+      }
+      signature.copy(dst, offset, rOffset + Math.max(-rPadding, 0), rOffset + rLength);
+      offset = paramBytes;
+      for (var o = offset; offset < o + sPadding; ++offset) {
+        dst[offset] = 0;
+      }
+      signature.copy(dst, offset, sOffset + Math.max(-sPadding, 0), sOffset + sLength);
+      dst = dst.toString("base64");
+      dst = base64Url(dst);
+      return dst;
+    }
+    function countPadding(buf, start, stop) {
+      var padding = 0;
+      while (start + padding < stop && buf[start + padding] === 0) {
+        ++padding;
+      }
+      var needsSign = buf[start + padding] >= MAX_OCTET;
+      if (needsSign) {
+        --padding;
+      }
+      return padding;
+    }
+    function joseToDer(signature, alg) {
+      signature = signatureAsBuffer(signature);
+      var paramBytes = getParamBytesForAlg(alg);
+      var signatureBytes = signature.length;
+      if (signatureBytes !== paramBytes * 2) {
+        throw new TypeError('"' + alg + '" signatures must be "' + paramBytes * 2 + '" bytes, saw "' + signatureBytes + '"');
+      }
+      var rPadding = countPadding(signature, 0, paramBytes);
+      var sPadding = countPadding(signature, paramBytes, signature.length);
+      var rLength = paramBytes - rPadding;
+      var sLength = paramBytes - sPadding;
+      var rsBytes = 1 + 1 + rLength + 1 + 1 + sLength;
+      var shortLength = rsBytes < MAX_OCTET;
+      var dst = Buffer2.allocUnsafe((shortLength ? 2 : 3) + rsBytes);
+      var offset = 0;
+      dst[offset++] = ENCODED_TAG_SEQ;
+      if (shortLength) {
+        dst[offset++] = rsBytes;
       } else {
-        done && done();
+        dst[offset++] = MAX_OCTET | 1;
+        dst[offset++] = rsBytes & 255;
       }
-    };
-    req.logout = req.logOut = function(options, done) {
-      if (typeof options == "function") {
-        done = options;
-        options = {};
-      }
-      options = options || {};
-      var property = this._userProperty || "user";
-      this[property] = null;
-      if (this._sessionManager) {
-        if (typeof done != "function") {
-          throw new Error("req#logout requires a callback function");
-        }
-        this._sessionManager.logOut(this, options, done);
+      dst[offset++] = ENCODED_TAG_INT;
+      dst[offset++] = rLength;
+      if (rPadding < 0) {
+        dst[offset++] = 0;
+        offset += signature.copy(dst, offset, 0, paramBytes);
       } else {
-        done && done();
+        offset += signature.copy(dst, offset, rPadding, paramBytes);
       }
-    };
-    req.isAuthenticated = function() {
-      var property = this._userProperty || "user";
-      return this[property] ? true : false;
-    };
-    req.isUnauthenticated = function() {
-      return !this.isAuthenticated();
+      dst[offset++] = ENCODED_TAG_INT;
+      dst[offset++] = sLength;
+      if (sPadding < 0) {
+        dst[offset++] = 0;
+        signature.copy(dst, offset, paramBytes);
+      } else {
+        signature.copy(dst, offset, paramBytes + sPadding);
+      }
+      return dst;
+    }
+    module2.exports = {
+      derToJose,
+      joseToDer
     };
   }
 });
 
-// node_modules/passport/lib/middleware/initialize.js
-var require_initialize = __commonJS({
-  "node_modules/passport/lib/middleware/initialize.js"(exports2, module2) {
-    var IncomingMessageExt = require_request2();
-    module2.exports = function initialize(passport2, options) {
-      options = options || {};
-      return function initialize2(req, res, next) {
-        req.login = req.logIn = req.logIn || IncomingMessageExt.logIn;
-        req.logout = req.logOut = req.logOut || IncomingMessageExt.logOut;
-        req.isAuthenticated = req.isAuthenticated || IncomingMessageExt.isAuthenticated;
-        req.isUnauthenticated = req.isUnauthenticated || IncomingMessageExt.isUnauthenticated;
-        req._sessionManager = passport2._sm;
-        if (options.userProperty) {
-          req._userProperty = options.userProperty;
-        }
-        var compat = options.compat === void 0 ? true : options.compat;
-        if (compat) {
-          passport2._userProperty = options.userProperty || "user";
-          req._passport = {};
-          req._passport.instance = passport2;
-        }
-        next();
+// node_modules/buffer-equal-constant-time/index.js
+var require_buffer_equal_constant_time = __commonJS({
+  "node_modules/buffer-equal-constant-time/index.js"(exports2, module2) {
+    "use strict";
+    var Buffer2 = require("buffer").Buffer;
+    var SlowBuffer = require("buffer").SlowBuffer;
+    module2.exports = bufferEq;
+    function bufferEq(a, b) {
+      if (!Buffer2.isBuffer(a) || !Buffer2.isBuffer(b)) {
+        return false;
+      }
+      if (a.length !== b.length) {
+        return false;
+      }
+      var c = 0;
+      for (var i = 0; i < a.length; i++) {
+        c |= a[i] ^ b[i];
+      }
+      return c === 0;
+    }
+    bufferEq.install = function() {
+      Buffer2.prototype.equal = SlowBuffer.prototype.equal = function equal(that) {
+        return bufferEq(this, that);
       };
     };
-  }
-});
-
-// node_modules/passport/lib/errors/authenticationerror.js
-var require_authenticationerror = __commonJS({
-  "node_modules/passport/lib/errors/authenticationerror.js"(exports2, module2) {
-    function AuthenticationError(message, status) {
-      Error.call(this);
-      Error.captureStackTrace(this, arguments.callee);
-      this.name = "AuthenticationError";
-      this.message = message;
-      this.status = status || 401;
-    }
-    AuthenticationError.prototype.__proto__ = Error.prototype;
-    module2.exports = AuthenticationError;
-  }
-});
-
-// node_modules/passport/lib/middleware/authenticate.js
-var require_authenticate = __commonJS({
-  "node_modules/passport/lib/middleware/authenticate.js"(exports2, module2) {
-    var http = require("http");
-    var IncomingMessageExt = require_request2();
-    var AuthenticationError = require_authenticationerror();
-    module2.exports = function authenticate(passport2, name, options, callback) {
-      if (typeof options == "function") {
-        callback = options;
-        options = {};
-      }
-      options = options || {};
-      var multi = true;
-      if (!Array.isArray(name)) {
-        name = [name];
-        multi = false;
-      }
-      return function authenticate2(req, res, next) {
-        req.login = req.logIn = req.logIn || IncomingMessageExt.logIn;
-        req.logout = req.logOut = req.logOut || IncomingMessageExt.logOut;
-        req.isAuthenticated = req.isAuthenticated || IncomingMessageExt.isAuthenticated;
-        req.isUnauthenticated = req.isUnauthenticated || IncomingMessageExt.isUnauthenticated;
-        req._sessionManager = passport2._sm;
-        var failures = [];
-        function allFailed() {
-          if (callback) {
-            if (!multi) {
-              return callback(null, false, failures[0].challenge, failures[0].status);
-            } else {
-              var challenges = failures.map(function(f) {
-                return f.challenge;
-              });
-              var statuses = failures.map(function(f) {
-                return f.status;
-              });
-              return callback(null, false, challenges, statuses);
-            }
-          }
-          var failure = failures[0] || {}, challenge = failure.challenge || {}, msg;
-          if (options.failureFlash) {
-            var flash = options.failureFlash;
-            if (typeof flash == "string") {
-              flash = { type: "error", message: flash };
-            }
-            flash.type = flash.type || "error";
-            var type = flash.type || challenge.type || "error";
-            msg = flash.message || challenge.message || challenge;
-            if (typeof msg == "string") {
-              req.flash(type, msg);
-            }
-          }
-          if (options.failureMessage) {
-            msg = options.failureMessage;
-            if (typeof msg == "boolean") {
-              msg = challenge.message || challenge;
-            }
-            if (typeof msg == "string") {
-              req.session.messages = req.session.messages || [];
-              req.session.messages.push(msg);
-            }
-          }
-          if (options.failureRedirect) {
-            return res.redirect(options.failureRedirect);
-          }
-          var rchallenge = [], rstatus, status;
-          for (var j = 0, len = failures.length; j < len; j++) {
-            failure = failures[j];
-            challenge = failure.challenge;
-            status = failure.status;
-            rstatus = rstatus || status;
-            if (typeof challenge == "string") {
-              rchallenge.push(challenge);
-            }
-          }
-          res.statusCode = rstatus || 401;
-          if (res.statusCode == 401 && rchallenge.length) {
-            res.setHeader("WWW-Authenticate", rchallenge);
-          }
-          if (options.failWithError) {
-            return next(new AuthenticationError(http.STATUS_CODES[res.statusCode], rstatus));
-          }
-          res.end(http.STATUS_CODES[res.statusCode]);
-        }
-        (function attempt(i) {
-          var layer = name[i];
-          if (!layer) {
-            return allFailed();
-          }
-          var strategy, prototype;
-          if (typeof layer.authenticate == "function") {
-            strategy = layer;
-          } else {
-            prototype = passport2._strategy(layer);
-            if (!prototype) {
-              return next(new Error('Unknown authentication strategy "' + layer + '"'));
-            }
-            strategy = Object.create(prototype);
-          }
-          strategy.success = function(user, info) {
-            if (callback) {
-              return callback(null, user, info);
-            }
-            info = info || {};
-            var msg;
-            if (options.successFlash) {
-              var flash = options.successFlash;
-              if (typeof flash == "string") {
-                flash = { type: "success", message: flash };
-              }
-              flash.type = flash.type || "success";
-              var type = flash.type || info.type || "success";
-              msg = flash.message || info.message || info;
-              if (typeof msg == "string") {
-                req.flash(type, msg);
-              }
-            }
-            if (options.successMessage) {
-              msg = options.successMessage;
-              if (typeof msg == "boolean") {
-                msg = info.message || info;
-              }
-              if (typeof msg == "string") {
-                req.session.messages = req.session.messages || [];
-                req.session.messages.push(msg);
-              }
-            }
-            if (options.assignProperty) {
-              req[options.assignProperty] = user;
-              if (options.authInfo !== false) {
-                passport2.transformAuthInfo(info, req, function(err, tinfo) {
-                  if (err) {
-                    return next(err);
-                  }
-                  req.authInfo = tinfo;
-                  next();
-                });
-              } else {
-                next();
-              }
-              return;
-            }
-            req.logIn(user, options, function(err) {
-              if (err) {
-                return next(err);
-              }
-              function complete() {
-                if (options.successReturnToOrRedirect) {
-                  var url = options.successReturnToOrRedirect;
-                  if (req.session && req.session.returnTo) {
-                    url = req.session.returnTo;
-                    delete req.session.returnTo;
-                  }
-                  return res.redirect(url);
-                }
-                if (options.successRedirect) {
-                  return res.redirect(options.successRedirect);
-                }
-                next();
-              }
-              if (options.authInfo !== false) {
-                passport2.transformAuthInfo(info, req, function(err2, tinfo) {
-                  if (err2) {
-                    return next(err2);
-                  }
-                  req.authInfo = tinfo;
-                  complete();
-                });
-              } else {
-                complete();
-              }
-            });
-          };
-          strategy.fail = function(challenge, status) {
-            if (typeof challenge == "number") {
-              status = challenge;
-              challenge = void 0;
-            }
-            failures.push({ challenge, status });
-            attempt(i + 1);
-          };
-          strategy.redirect = function(url, status) {
-            res.statusCode = status || 302;
-            res.setHeader("Location", url);
-            res.setHeader("Content-Length", "0");
-            res.end();
-          };
-          strategy.pass = function() {
-            next();
-          };
-          strategy.error = function(err) {
-            if (callback) {
-              return callback(err);
-            }
-            next(err);
-          };
-          strategy.authenticate(req, options);
-        })(0);
-      };
+    var origBufEqual = Buffer2.prototype.equal;
+    var origSlowBufEqual = SlowBuffer.prototype.equal;
+    bufferEq.restore = function() {
+      Buffer2.prototype.equal = origBufEqual;
+      SlowBuffer.prototype.equal = origSlowBufEqual;
     };
   }
 });
 
-// node_modules/passport/lib/framework/connect.js
-var require_connect = __commonJS({
-  "node_modules/passport/lib/framework/connect.js"(exports2, module2) {
-    var initialize = require_initialize();
-    var authenticate = require_authenticate();
-    exports2 = module2.exports = function() {
+// node_modules/jwa/index.js
+var require_jwa = __commonJS({
+  "node_modules/jwa/index.js"(exports2, module2) {
+    var Buffer2 = require_safe_buffer().Buffer;
+    var crypto = require("crypto");
+    var formatEcdsa = require_ecdsa_sig_formatter();
+    var util2 = require("util");
+    var MSG_INVALID_ALGORITHM = '"%s" is not a valid algorithm.\n  Supported algorithms are:\n  "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512" and "none".';
+    var MSG_INVALID_SECRET = "secret must be a string or buffer";
+    var MSG_INVALID_VERIFIER_KEY = "key must be a string or a buffer";
+    var MSG_INVALID_SIGNER_KEY = "key must be a string, a buffer or an object";
+    var supportsKeyObjects = typeof crypto.createPublicKey === "function";
+    if (supportsKeyObjects) {
+      MSG_INVALID_VERIFIER_KEY += " or a KeyObject";
+      MSG_INVALID_SECRET += "or a KeyObject";
+    }
+    function checkIsPublicKey(key) {
+      if (Buffer2.isBuffer(key)) {
+        return;
+      }
+      if (typeof key === "string") {
+        return;
+      }
+      if (!supportsKeyObjects) {
+        throw typeError(MSG_INVALID_VERIFIER_KEY);
+      }
+      if (typeof key !== "object") {
+        throw typeError(MSG_INVALID_VERIFIER_KEY);
+      }
+      if (typeof key.type !== "string") {
+        throw typeError(MSG_INVALID_VERIFIER_KEY);
+      }
+      if (typeof key.asymmetricKeyType !== "string") {
+        throw typeError(MSG_INVALID_VERIFIER_KEY);
+      }
+      if (typeof key.export !== "function") {
+        throw typeError(MSG_INVALID_VERIFIER_KEY);
+      }
+    }
+    function checkIsPrivateKey(key) {
+      if (Buffer2.isBuffer(key)) {
+        return;
+      }
+      if (typeof key === "string") {
+        return;
+      }
+      if (typeof key === "object") {
+        return;
+      }
+      throw typeError(MSG_INVALID_SIGNER_KEY);
+    }
+    function checkIsSecretKey(key) {
+      if (Buffer2.isBuffer(key)) {
+        return;
+      }
+      if (typeof key === "string") {
+        return key;
+      }
+      if (!supportsKeyObjects) {
+        throw typeError(MSG_INVALID_SECRET);
+      }
+      if (typeof key !== "object") {
+        throw typeError(MSG_INVALID_SECRET);
+      }
+      if (key.type !== "secret") {
+        throw typeError(MSG_INVALID_SECRET);
+      }
+      if (typeof key.export !== "function") {
+        throw typeError(MSG_INVALID_SECRET);
+      }
+    }
+    function fromBase64(base64) {
+      return base64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    }
+    function toBase64(base64url) {
+      base64url = base64url.toString();
+      var padding = 4 - base64url.length % 4;
+      if (padding !== 4) {
+        for (var i = 0; i < padding; ++i) {
+          base64url += "=";
+        }
+      }
+      return base64url.replace(/\-/g, "+").replace(/_/g, "/");
+    }
+    function typeError(template) {
+      var args = [].slice.call(arguments, 1);
+      var errMsg = util2.format.bind(util2, template).apply(null, args);
+      return new TypeError(errMsg);
+    }
+    function bufferOrString(obj) {
+      return Buffer2.isBuffer(obj) || typeof obj === "string";
+    }
+    function normalizeInput(thing) {
+      if (!bufferOrString(thing))
+        thing = JSON.stringify(thing);
+      return thing;
+    }
+    function createHmacSigner(bits) {
+      return function sign(thing, secret) {
+        checkIsSecretKey(secret);
+        thing = normalizeInput(thing);
+        var hmac = crypto.createHmac("sha" + bits, secret);
+        var sig = (hmac.update(thing), hmac.digest("base64"));
+        return fromBase64(sig);
+      };
+    }
+    var bufferEqual;
+    var timingSafeEqual2 = "timingSafeEqual" in crypto ? function timingSafeEqual3(a, b) {
+      if (a.byteLength !== b.byteLength) {
+        return false;
+      }
+      return crypto.timingSafeEqual(a, b);
+    } : function timingSafeEqual3(a, b) {
+      if (!bufferEqual) {
+        bufferEqual = require_buffer_equal_constant_time();
+      }
+      return bufferEqual(a, b);
+    };
+    function createHmacVerifier(bits) {
+      return function verify(thing, signature, secret) {
+        var computedSig = createHmacSigner(bits)(thing, secret);
+        return timingSafeEqual2(Buffer2.from(signature), Buffer2.from(computedSig));
+      };
+    }
+    function createKeySigner(bits) {
+      return function sign(thing, privateKey) {
+        checkIsPrivateKey(privateKey);
+        thing = normalizeInput(thing);
+        var signer = crypto.createSign("RSA-SHA" + bits);
+        var sig = (signer.update(thing), signer.sign(privateKey, "base64"));
+        return fromBase64(sig);
+      };
+    }
+    function createKeyVerifier(bits) {
+      return function verify(thing, signature, publicKey) {
+        checkIsPublicKey(publicKey);
+        thing = normalizeInput(thing);
+        signature = toBase64(signature);
+        var verifier = crypto.createVerify("RSA-SHA" + bits);
+        verifier.update(thing);
+        return verifier.verify(publicKey, signature, "base64");
+      };
+    }
+    function createPSSKeySigner(bits) {
+      return function sign(thing, privateKey) {
+        checkIsPrivateKey(privateKey);
+        thing = normalizeInput(thing);
+        var signer = crypto.createSign("RSA-SHA" + bits);
+        var sig = (signer.update(thing), signer.sign({
+          key: privateKey,
+          padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST
+        }, "base64"));
+        return fromBase64(sig);
+      };
+    }
+    function createPSSKeyVerifier(bits) {
+      return function verify(thing, signature, publicKey) {
+        checkIsPublicKey(publicKey);
+        thing = normalizeInput(thing);
+        signature = toBase64(signature);
+        var verifier = crypto.createVerify("RSA-SHA" + bits);
+        verifier.update(thing);
+        return verifier.verify({
+          key: publicKey,
+          padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST
+        }, signature, "base64");
+      };
+    }
+    function createECDSASigner(bits) {
+      var inner = createKeySigner(bits);
+      return function sign() {
+        var signature = inner.apply(null, arguments);
+        signature = formatEcdsa.derToJose(signature, "ES" + bits);
+        return signature;
+      };
+    }
+    function createECDSAVerifer(bits) {
+      var inner = createKeyVerifier(bits);
+      return function verify(thing, signature, publicKey) {
+        signature = formatEcdsa.joseToDer(signature, "ES" + bits).toString("base64");
+        var result = inner(thing, signature, publicKey);
+        return result;
+      };
+    }
+    function createNoneSigner() {
+      return function sign() {
+        return "";
+      };
+    }
+    function createNoneVerifier() {
+      return function verify(thing, signature) {
+        return signature === "";
+      };
+    }
+    module2.exports = function jwa(algorithm) {
+      var signerFactories = {
+        hs: createHmacSigner,
+        rs: createKeySigner,
+        ps: createPSSKeySigner,
+        es: createECDSASigner,
+        none: createNoneSigner
+      };
+      var verifierFactories = {
+        hs: createHmacVerifier,
+        rs: createKeyVerifier,
+        ps: createPSSKeyVerifier,
+        es: createECDSAVerifer,
+        none: createNoneVerifier
+      };
+      var match = algorithm.match(/^(RS|PS|ES|HS)(256|384|512)$|^(none)$/);
+      if (!match)
+        throw typeError(MSG_INVALID_ALGORITHM, algorithm);
+      var algo = (match[1] || match[3]).toLowerCase();
+      var bits = match[2];
       return {
-        initialize,
-        authenticate
+        sign: signerFactories[algo](bits),
+        verify: verifierFactories[algo](bits)
       };
     };
   }
 });
 
-// node_modules/passport/lib/authenticator.js
-var require_authenticator = __commonJS({
-  "node_modules/passport/lib/authenticator.js"(exports2, module2) {
-    var SessionStrategy = require_session();
-    var SessionManager = require_sessionmanager();
-    function Authenticator() {
-      this._key = "passport";
-      this._strategies = {};
-      this._serializers = [];
-      this._deserializers = [];
-      this._infoTransformers = [];
-      this._framework = null;
-      this.init();
+// node_modules/jws/lib/tostring.js
+var require_tostring = __commonJS({
+  "node_modules/jws/lib/tostring.js"(exports2, module2) {
+    var Buffer2 = require("buffer").Buffer;
+    module2.exports = function toString(obj) {
+      if (typeof obj === "string")
+        return obj;
+      if (typeof obj === "number" || Buffer2.isBuffer(obj))
+        return obj.toString();
+      return JSON.stringify(obj);
+    };
+  }
+});
+
+// node_modules/jws/lib/sign-stream.js
+var require_sign_stream = __commonJS({
+  "node_modules/jws/lib/sign-stream.js"(exports2, module2) {
+    var Buffer2 = require_safe_buffer().Buffer;
+    var DataStream = require_data_stream();
+    var jwa = require_jwa();
+    var Stream = require("stream");
+    var toString = require_tostring();
+    var util2 = require("util");
+    function base64url(string, encoding) {
+      return Buffer2.from(string, encoding).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
     }
-    Authenticator.prototype.init = function() {
-      this.framework(require_connect()());
-      this.use(new SessionStrategy({ key: this._key }, this.deserializeUser.bind(this)));
-      this._sm = new SessionManager({ key: this._key }, this.serializeUser.bind(this));
-    };
-    Authenticator.prototype.use = function(name, strategy) {
-      if (!strategy) {
-        strategy = name;
-        name = strategy.name;
+    function jwsSecuredInput(header, payload, encoding) {
+      encoding = encoding || "utf8";
+      var encodedHeader = base64url(toString(header), "binary");
+      var encodedPayload = base64url(toString(payload), encoding);
+      return util2.format("%s.%s", encodedHeader, encodedPayload);
+    }
+    function jwsSign(opts) {
+      var header = opts.header;
+      var payload = opts.payload;
+      var secretOrKey = opts.secret || opts.privateKey;
+      var encoding = opts.encoding;
+      var algo = jwa(header.alg);
+      var securedInput = jwsSecuredInput(header, payload, encoding);
+      var signature = algo.sign(securedInput, secretOrKey);
+      return util2.format("%s.%s", securedInput, signature);
+    }
+    function SignStream(opts) {
+      var secret = opts.secret;
+      secret = secret == null ? opts.privateKey : secret;
+      secret = secret == null ? opts.key : secret;
+      if (/^hs/i.test(opts.header.alg) === true && secret == null) {
+        throw new TypeError("secret must be a string or buffer or a KeyObject");
       }
-      if (!name) {
-        throw new Error("Authentication strategies must have a name");
+      var secretStream = new DataStream(secret);
+      this.readable = true;
+      this.header = opts.header;
+      this.encoding = opts.encoding;
+      this.secret = this.privateKey = this.key = secretStream;
+      this.payload = new DataStream(opts.payload);
+      this.secret.once("close", function() {
+        if (!this.payload.writable && this.readable)
+          this.sign();
+      }.bind(this));
+      this.payload.once("close", function() {
+        if (!this.secret.writable && this.readable)
+          this.sign();
+      }.bind(this));
+    }
+    util2.inherits(SignStream, Stream);
+    SignStream.prototype.sign = function sign() {
+      try {
+        var signature = jwsSign({
+          header: this.header,
+          payload: this.payload.buffer,
+          secret: this.secret.buffer,
+          encoding: this.encoding
+        });
+        this.emit("done", signature);
+        this.emit("data", signature);
+        this.emit("end");
+        this.readable = false;
+        return signature;
+      } catch (e) {
+        this.readable = false;
+        this.emit("error", e);
+        this.emit("close");
       }
-      this._strategies[name] = strategy;
-      return this;
     };
-    Authenticator.prototype.unuse = function(name) {
-      delete this._strategies[name];
-      return this;
-    };
-    Authenticator.prototype.framework = function(fw) {
-      this._framework = fw;
-      return this;
-    };
-    Authenticator.prototype.initialize = function(options) {
-      options = options || {};
-      return this._framework.initialize(this, options);
-    };
-    Authenticator.prototype.authenticate = function(strategy, options, callback) {
-      return this._framework.authenticate(this, strategy, options, callback);
-    };
-    Authenticator.prototype.authorize = function(strategy, options, callback) {
-      options = options || {};
-      options.assignProperty = "account";
-      var fn = this._framework.authorize || this._framework.authenticate;
-      return fn(this, strategy, options, callback);
-    };
-    Authenticator.prototype.session = function(options) {
-      return this.authenticate("session", options);
-    };
-    Authenticator.prototype.serializeUser = function(fn, req, done) {
-      if (typeof fn === "function") {
-        return this._serializers.push(fn);
-      }
-      var user = fn;
-      if (typeof req === "function") {
-        done = req;
-        req = void 0;
-      }
-      var stack = this._serializers;
-      (function pass(i, err, obj) {
-        if ("pass" === err) {
-          err = void 0;
-        }
-        if (err || obj || obj === 0) {
-          return done(err, obj);
-        }
-        var layer = stack[i];
-        if (!layer) {
-          return done(new Error("Failed to serialize user into session"));
-        }
-        function serialized(e, o) {
-          pass(i + 1, e, o);
-        }
-        try {
-          var arity = layer.length;
-          if (arity == 3) {
-            layer(req, user, serialized);
-          } else {
-            layer(user, serialized);
-          }
-        } catch (e) {
-          return done(e);
-        }
-      })(0);
-    };
-    Authenticator.prototype.deserializeUser = function(fn, req, done) {
-      if (typeof fn === "function") {
-        return this._deserializers.push(fn);
-      }
-      var obj = fn;
-      if (typeof req === "function") {
-        done = req;
-        req = void 0;
-      }
-      var stack = this._deserializers;
-      (function pass(i, err, user) {
-        if ("pass" === err) {
-          err = void 0;
-        }
-        if (err || user) {
-          return done(err, user);
-        }
-        if (user === null || user === false) {
-          return done(null, false);
-        }
-        var layer = stack[i];
-        if (!layer) {
-          return done(new Error("Failed to deserialize user out of session"));
-        }
-        function deserialized(e, u) {
-          pass(i + 1, e, u);
-        }
-        try {
-          var arity = layer.length;
-          if (arity == 3) {
-            layer(req, obj, deserialized);
-          } else {
-            layer(obj, deserialized);
-          }
-        } catch (e) {
-          return done(e);
-        }
-      })(0);
-    };
-    Authenticator.prototype.transformAuthInfo = function(fn, req, done) {
-      if (typeof fn === "function") {
-        return this._infoTransformers.push(fn);
-      }
-      var info = fn;
-      if (typeof req === "function") {
-        done = req;
-        req = void 0;
-      }
-      var stack = this._infoTransformers;
-      (function pass(i, err, tinfo) {
-        if ("pass" === err) {
-          err = void 0;
-        }
-        if (err || tinfo) {
-          return done(err, tinfo);
-        }
-        var layer = stack[i];
-        if (!layer) {
-          return done(null, info);
-        }
-        function transformed(e, t2) {
-          pass(i + 1, e, t2);
-        }
-        try {
-          var arity = layer.length;
-          if (arity == 1) {
-            var t = layer(info);
-            transformed(null, t);
-          } else if (arity == 3) {
-            layer(req, info, transformed);
-          } else {
-            layer(info, transformed);
-          }
-        } catch (e) {
-          return done(e);
-        }
-      })(0);
-    };
-    Authenticator.prototype._strategy = function(name) {
-      return this._strategies[name];
-    };
-    module2.exports = Authenticator;
+    SignStream.sign = jwsSign;
+    module2.exports = SignStream;
   }
 });
 
-// node_modules/passport/lib/index.js
-var require_lib4 = __commonJS({
-  "node_modules/passport/lib/index.js"(exports2, module2) {
-    var Passport = require_authenticator();
-    var SessionStrategy = require_session();
-    exports2 = module2.exports = new Passport();
-    exports2.Passport = exports2.Authenticator = Passport;
-    exports2.Strategy = require_lib3();
-    exports2.strategies = {};
-    exports2.strategies.SessionStrategy = SessionStrategy;
+// node_modules/jws/lib/verify-stream.js
+var require_verify_stream = __commonJS({
+  "node_modules/jws/lib/verify-stream.js"(exports2, module2) {
+    var Buffer2 = require_safe_buffer().Buffer;
+    var DataStream = require_data_stream();
+    var jwa = require_jwa();
+    var Stream = require("stream");
+    var toString = require_tostring();
+    var util2 = require("util");
+    var JWS_REGEX = /^[a-zA-Z0-9\-_]+?\.[a-zA-Z0-9\-_]+?\.([a-zA-Z0-9\-_]+)?$/;
+    function isObject(thing) {
+      return Object.prototype.toString.call(thing) === "[object Object]";
+    }
+    function safeJsonParse(thing) {
+      if (isObject(thing))
+        return thing;
+      try {
+        return JSON.parse(thing);
+      } catch (e) {
+        return void 0;
+      }
+    }
+    function headerFromJWS(jwsSig) {
+      var encodedHeader = jwsSig.split(".", 1)[0];
+      return safeJsonParse(Buffer2.from(encodedHeader, "base64").toString("binary"));
+    }
+    function securedInputFromJWS(jwsSig) {
+      return jwsSig.split(".", 2).join(".");
+    }
+    function signatureFromJWS(jwsSig) {
+      return jwsSig.split(".")[2];
+    }
+    function payloadFromJWS(jwsSig, encoding) {
+      encoding = encoding || "utf8";
+      var payload = jwsSig.split(".")[1];
+      return Buffer2.from(payload, "base64").toString(encoding);
+    }
+    function isValidJws(string) {
+      return JWS_REGEX.test(string) && !!headerFromJWS(string);
+    }
+    function jwsVerify(jwsSig, algorithm, secretOrKey) {
+      if (!algorithm) {
+        var err = new Error("Missing algorithm parameter for jws.verify");
+        err.code = "MISSING_ALGORITHM";
+        throw err;
+      }
+      jwsSig = toString(jwsSig);
+      var signature = signatureFromJWS(jwsSig);
+      var securedInput = securedInputFromJWS(jwsSig);
+      var algo = jwa(algorithm);
+      return algo.verify(securedInput, signature, secretOrKey);
+    }
+    function jwsDecode(jwsSig, opts) {
+      opts = opts || {};
+      jwsSig = toString(jwsSig);
+      if (!isValidJws(jwsSig))
+        return null;
+      var header = headerFromJWS(jwsSig);
+      if (!header)
+        return null;
+      var payload = payloadFromJWS(jwsSig);
+      if (header.typ === "JWT" || opts.json)
+        payload = JSON.parse(payload, opts.encoding);
+      return {
+        header,
+        payload,
+        signature: signatureFromJWS(jwsSig)
+      };
+    }
+    function VerifyStream(opts) {
+      opts = opts || {};
+      var secretOrKey = opts.secret;
+      secretOrKey = secretOrKey == null ? opts.publicKey : secretOrKey;
+      secretOrKey = secretOrKey == null ? opts.key : secretOrKey;
+      if (/^hs/i.test(opts.algorithm) === true && secretOrKey == null) {
+        throw new TypeError("secret must be a string or buffer or a KeyObject");
+      }
+      var secretStream = new DataStream(secretOrKey);
+      this.readable = true;
+      this.algorithm = opts.algorithm;
+      this.encoding = opts.encoding;
+      this.secret = this.publicKey = this.key = secretStream;
+      this.signature = new DataStream(opts.signature);
+      this.secret.once("close", function() {
+        if (!this.signature.writable && this.readable)
+          this.verify();
+      }.bind(this));
+      this.signature.once("close", function() {
+        if (!this.secret.writable && this.readable)
+          this.verify();
+      }.bind(this));
+    }
+    util2.inherits(VerifyStream, Stream);
+    VerifyStream.prototype.verify = function verify() {
+      try {
+        var valid = jwsVerify(this.signature.buffer, this.algorithm, this.key.buffer);
+        var obj = jwsDecode(this.signature.buffer, this.encoding);
+        this.emit("done", valid, obj);
+        this.emit("data", valid);
+        this.emit("end");
+        this.readable = false;
+        return valid;
+      } catch (e) {
+        this.readable = false;
+        this.emit("error", e);
+        this.emit("close");
+      }
+    };
+    VerifyStream.decode = jwsDecode;
+    VerifyStream.isValid = isValidJws;
+    VerifyStream.verify = jwsVerify;
+    module2.exports = VerifyStream;
   }
 });
 
-// node_modules/passport-local/lib/utils.js
-var require_utils3 = __commonJS({
-  "node_modules/passport-local/lib/utils.js"(exports2) {
-    exports2.lookup = function(obj, field) {
-      if (!obj) {
+// node_modules/jws/index.js
+var require_jws = __commonJS({
+  "node_modules/jws/index.js"(exports2) {
+    var SignStream = require_sign_stream();
+    var VerifyStream = require_verify_stream();
+    var ALGORITHMS = [
+      "HS256",
+      "HS384",
+      "HS512",
+      "RS256",
+      "RS384",
+      "RS512",
+      "PS256",
+      "PS384",
+      "PS512",
+      "ES256",
+      "ES384",
+      "ES512"
+    ];
+    exports2.ALGORITHMS = ALGORITHMS;
+    exports2.sign = SignStream.sign;
+    exports2.verify = VerifyStream.verify;
+    exports2.decode = VerifyStream.decode;
+    exports2.isValid = VerifyStream.isValid;
+    exports2.createSign = function createSign(opts) {
+      return new SignStream(opts);
+    };
+    exports2.createVerify = function createVerify(opts) {
+      return new VerifyStream(opts);
+    };
+  }
+});
+
+// node_modules/jsonwebtoken/decode.js
+var require_decode = __commonJS({
+  "node_modules/jsonwebtoken/decode.js"(exports2, module2) {
+    var jws = require_jws();
+    module2.exports = function(jwt2, options) {
+      options = options || {};
+      var decoded = jws.decode(jwt2, options);
+      if (!decoded) {
         return null;
       }
-      var chain = field.split("]").join("").split("[");
-      for (var i = 0, len = chain.length; i < len; i++) {
-        var prop = obj[chain[i]];
-        if (typeof prop === "undefined") {
+      var payload = decoded.payload;
+      if (typeof payload === "string") {
+        try {
+          var obj = JSON.parse(payload);
+          if (obj !== null && typeof obj === "object") {
+            payload = obj;
+          }
+        } catch (e) {
+        }
+      }
+      if (options.complete === true) {
+        return {
+          header: decoded.header,
+          payload,
+          signature: decoded.signature
+        };
+      }
+      return payload;
+    };
+  }
+});
+
+// node_modules/jsonwebtoken/lib/JsonWebTokenError.js
+var require_JsonWebTokenError = __commonJS({
+  "node_modules/jsonwebtoken/lib/JsonWebTokenError.js"(exports2, module2) {
+    var JsonWebTokenError = function(message, error) {
+      Error.call(this, message);
+      if (Error.captureStackTrace) {
+        Error.captureStackTrace(this, this.constructor);
+      }
+      this.name = "JsonWebTokenError";
+      this.message = message;
+      if (error) this.inner = error;
+    };
+    JsonWebTokenError.prototype = Object.create(Error.prototype);
+    JsonWebTokenError.prototype.constructor = JsonWebTokenError;
+    module2.exports = JsonWebTokenError;
+  }
+});
+
+// node_modules/jsonwebtoken/lib/NotBeforeError.js
+var require_NotBeforeError = __commonJS({
+  "node_modules/jsonwebtoken/lib/NotBeforeError.js"(exports2, module2) {
+    var JsonWebTokenError = require_JsonWebTokenError();
+    var NotBeforeError = function(message, date2) {
+      JsonWebTokenError.call(this, message);
+      this.name = "NotBeforeError";
+      this.date = date2;
+    };
+    NotBeforeError.prototype = Object.create(JsonWebTokenError.prototype);
+    NotBeforeError.prototype.constructor = NotBeforeError;
+    module2.exports = NotBeforeError;
+  }
+});
+
+// node_modules/jsonwebtoken/lib/TokenExpiredError.js
+var require_TokenExpiredError = __commonJS({
+  "node_modules/jsonwebtoken/lib/TokenExpiredError.js"(exports2, module2) {
+    var JsonWebTokenError = require_JsonWebTokenError();
+    var TokenExpiredError = function(message, expiredAt) {
+      JsonWebTokenError.call(this, message);
+      this.name = "TokenExpiredError";
+      this.expiredAt = expiredAt;
+    };
+    TokenExpiredError.prototype = Object.create(JsonWebTokenError.prototype);
+    TokenExpiredError.prototype.constructor = TokenExpiredError;
+    module2.exports = TokenExpiredError;
+  }
+});
+
+// node_modules/jsonwebtoken/lib/timespan.js
+var require_timespan = __commonJS({
+  "node_modules/jsonwebtoken/lib/timespan.js"(exports2, module2) {
+    var ms = require_ms5();
+    module2.exports = function(time2, iat) {
+      var timestamp2 = iat || Math.floor(Date.now() / 1e3);
+      if (typeof time2 === "string") {
+        var milliseconds = ms(time2);
+        if (typeof milliseconds === "undefined") {
+          return;
+        }
+        return Math.floor(timestamp2 + milliseconds / 1e3);
+      } else if (typeof time2 === "number") {
+        return timestamp2 + time2;
+      } else {
+        return;
+      }
+    };
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/internal/constants.js
+var require_constants = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/internal/constants.js"(exports2, module2) {
+    "use strict";
+    var SEMVER_SPEC_VERSION = "2.0.0";
+    var MAX_LENGTH = 256;
+    var MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER || /* istanbul ignore next */
+    9007199254740991;
+    var MAX_SAFE_COMPONENT_LENGTH = 16;
+    var MAX_SAFE_BUILD_LENGTH = MAX_LENGTH - 6;
+    var RELEASE_TYPES = [
+      "major",
+      "premajor",
+      "minor",
+      "preminor",
+      "patch",
+      "prepatch",
+      "prerelease"
+    ];
+    module2.exports = {
+      MAX_LENGTH,
+      MAX_SAFE_COMPONENT_LENGTH,
+      MAX_SAFE_BUILD_LENGTH,
+      MAX_SAFE_INTEGER,
+      RELEASE_TYPES,
+      SEMVER_SPEC_VERSION,
+      FLAG_INCLUDE_PRERELEASE: 1,
+      FLAG_LOOSE: 2
+    };
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/internal/debug.js
+var require_debug5 = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/internal/debug.js"(exports2, module2) {
+    "use strict";
+    var debug = typeof process === "object" && process.env && process.env.NODE_DEBUG && /\bsemver\b/i.test(process.env.NODE_DEBUG) ? (...args) => console.error("SEMVER", ...args) : () => {
+    };
+    module2.exports = debug;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/internal/re.js
+var require_re = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/internal/re.js"(exports2, module2) {
+    "use strict";
+    var {
+      MAX_SAFE_COMPONENT_LENGTH,
+      MAX_SAFE_BUILD_LENGTH,
+      MAX_LENGTH
+    } = require_constants();
+    var debug = require_debug5();
+    exports2 = module2.exports = {};
+    var re = exports2.re = [];
+    var safeRe = exports2.safeRe = [];
+    var src = exports2.src = [];
+    var safeSrc = exports2.safeSrc = [];
+    var t = exports2.t = {};
+    var R = 0;
+    var LETTERDASHNUMBER = "[a-zA-Z0-9-]";
+    var safeRegexReplacements = [
+      ["\\s", 1],
+      ["\\d", MAX_LENGTH],
+      [LETTERDASHNUMBER, MAX_SAFE_BUILD_LENGTH]
+    ];
+    var makeSafeRegex = (value) => {
+      for (const [token, max] of safeRegexReplacements) {
+        value = value.split(`${token}*`).join(`${token}{0,${max}}`).split(`${token}+`).join(`${token}{1,${max}}`);
+      }
+      return value;
+    };
+    var createToken = (name, value, isGlobal) => {
+      const safe = makeSafeRegex(value);
+      const index = R++;
+      debug(name, index, value);
+      t[name] = index;
+      src[index] = value;
+      safeSrc[index] = safe;
+      re[index] = new RegExp(value, isGlobal ? "g" : void 0);
+      safeRe[index] = new RegExp(safe, isGlobal ? "g" : void 0);
+    };
+    createToken("NUMERICIDENTIFIER", "0|[1-9]\\d*");
+    createToken("NUMERICIDENTIFIERLOOSE", "\\d+");
+    createToken("NONNUMERICIDENTIFIER", `\\d*[a-zA-Z-]${LETTERDASHNUMBER}*`);
+    createToken("MAINVERSION", `(${src[t.NUMERICIDENTIFIER]})\\.(${src[t.NUMERICIDENTIFIER]})\\.(${src[t.NUMERICIDENTIFIER]})`);
+    createToken("MAINVERSIONLOOSE", `(${src[t.NUMERICIDENTIFIERLOOSE]})\\.(${src[t.NUMERICIDENTIFIERLOOSE]})\\.(${src[t.NUMERICIDENTIFIERLOOSE]})`);
+    createToken("PRERELEASEIDENTIFIER", `(?:${src[t.NONNUMERICIDENTIFIER]}|${src[t.NUMERICIDENTIFIER]})`);
+    createToken("PRERELEASEIDENTIFIERLOOSE", `(?:${src[t.NONNUMERICIDENTIFIER]}|${src[t.NUMERICIDENTIFIERLOOSE]})`);
+    createToken("PRERELEASE", `(?:-(${src[t.PRERELEASEIDENTIFIER]}(?:\\.${src[t.PRERELEASEIDENTIFIER]})*))`);
+    createToken("PRERELEASELOOSE", `(?:-?(${src[t.PRERELEASEIDENTIFIERLOOSE]}(?:\\.${src[t.PRERELEASEIDENTIFIERLOOSE]})*))`);
+    createToken("BUILDIDENTIFIER", `${LETTERDASHNUMBER}+`);
+    createToken("BUILD", `(?:\\+(${src[t.BUILDIDENTIFIER]}(?:\\.${src[t.BUILDIDENTIFIER]})*))`);
+    createToken("FULLPLAIN", `v?${src[t.MAINVERSION]}${src[t.PRERELEASE]}?${src[t.BUILD]}?`);
+    createToken("FULL", `^${src[t.FULLPLAIN]}$`);
+    createToken("LOOSEPLAIN", `[v=\\s]*${src[t.MAINVERSIONLOOSE]}${src[t.PRERELEASELOOSE]}?${src[t.BUILD]}?`);
+    createToken("LOOSE", `^${src[t.LOOSEPLAIN]}$`);
+    createToken("GTLT", "((?:<|>)?=?)");
+    createToken("XRANGEIDENTIFIERLOOSE", `${src[t.NUMERICIDENTIFIERLOOSE]}|x|X|\\*`);
+    createToken("XRANGEIDENTIFIER", `${src[t.NUMERICIDENTIFIER]}|x|X|\\*`);
+    createToken("XRANGEPLAIN", `[v=\\s]*(${src[t.XRANGEIDENTIFIER]})(?:\\.(${src[t.XRANGEIDENTIFIER]})(?:\\.(${src[t.XRANGEIDENTIFIER]})(?:${src[t.PRERELEASE]})?${src[t.BUILD]}?)?)?`);
+    createToken("XRANGEPLAINLOOSE", `[v=\\s]*(${src[t.XRANGEIDENTIFIERLOOSE]})(?:\\.(${src[t.XRANGEIDENTIFIERLOOSE]})(?:\\.(${src[t.XRANGEIDENTIFIERLOOSE]})(?:${src[t.PRERELEASELOOSE]})?${src[t.BUILD]}?)?)?`);
+    createToken("XRANGE", `^${src[t.GTLT]}\\s*${src[t.XRANGEPLAIN]}$`);
+    createToken("XRANGELOOSE", `^${src[t.GTLT]}\\s*${src[t.XRANGEPLAINLOOSE]}$`);
+    createToken("COERCEPLAIN", `${"(^|[^\\d])(\\d{1,"}${MAX_SAFE_COMPONENT_LENGTH}})(?:\\.(\\d{1,${MAX_SAFE_COMPONENT_LENGTH}}))?(?:\\.(\\d{1,${MAX_SAFE_COMPONENT_LENGTH}}))?`);
+    createToken("COERCE", `${src[t.COERCEPLAIN]}(?:$|[^\\d])`);
+    createToken("COERCEFULL", src[t.COERCEPLAIN] + `(?:${src[t.PRERELEASE]})?(?:${src[t.BUILD]})?(?:$|[^\\d])`);
+    createToken("COERCERTL", src[t.COERCE], true);
+    createToken("COERCERTLFULL", src[t.COERCEFULL], true);
+    createToken("LONETILDE", "(?:~>?)");
+    createToken("TILDETRIM", `(\\s*)${src[t.LONETILDE]}\\s+`, true);
+    exports2.tildeTrimReplace = "$1~";
+    createToken("TILDE", `^${src[t.LONETILDE]}${src[t.XRANGEPLAIN]}$`);
+    createToken("TILDELOOSE", `^${src[t.LONETILDE]}${src[t.XRANGEPLAINLOOSE]}$`);
+    createToken("LONECARET", "(?:\\^)");
+    createToken("CARETTRIM", `(\\s*)${src[t.LONECARET]}\\s+`, true);
+    exports2.caretTrimReplace = "$1^";
+    createToken("CARET", `^${src[t.LONECARET]}${src[t.XRANGEPLAIN]}$`);
+    createToken("CARETLOOSE", `^${src[t.LONECARET]}${src[t.XRANGEPLAINLOOSE]}$`);
+    createToken("COMPARATORLOOSE", `^${src[t.GTLT]}\\s*(${src[t.LOOSEPLAIN]})$|^$`);
+    createToken("COMPARATOR", `^${src[t.GTLT]}\\s*(${src[t.FULLPLAIN]})$|^$`);
+    createToken("COMPARATORTRIM", `(\\s*)${src[t.GTLT]}\\s*(${src[t.LOOSEPLAIN]}|${src[t.XRANGEPLAIN]})`, true);
+    exports2.comparatorTrimReplace = "$1$2$3";
+    createToken("HYPHENRANGE", `^\\s*(${src[t.XRANGEPLAIN]})\\s+-\\s+(${src[t.XRANGEPLAIN]})\\s*$`);
+    createToken("HYPHENRANGELOOSE", `^\\s*(${src[t.XRANGEPLAINLOOSE]})\\s+-\\s+(${src[t.XRANGEPLAINLOOSE]})\\s*$`);
+    createToken("STAR", "(<|>)?=?\\s*\\*");
+    createToken("GTE0", "^\\s*>=\\s*0\\.0\\.0\\s*$");
+    createToken("GTE0PRE", "^\\s*>=\\s*0\\.0\\.0-0\\s*$");
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/internal/parse-options.js
+var require_parse_options = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/internal/parse-options.js"(exports2, module2) {
+    "use strict";
+    var looseOption = Object.freeze({ loose: true });
+    var emptyOpts = Object.freeze({});
+    var parseOptions = (options) => {
+      if (!options) {
+        return emptyOpts;
+      }
+      if (typeof options !== "object") {
+        return looseOption;
+      }
+      return options;
+    };
+    module2.exports = parseOptions;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/internal/identifiers.js
+var require_identifiers = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/internal/identifiers.js"(exports2, module2) {
+    "use strict";
+    var numeric2 = /^[0-9]+$/;
+    var compareIdentifiers = (a, b) => {
+      if (typeof a === "number" && typeof b === "number") {
+        return a === b ? 0 : a < b ? -1 : 1;
+      }
+      const anum = numeric2.test(a);
+      const bnum = numeric2.test(b);
+      if (anum && bnum) {
+        a = +a;
+        b = +b;
+      }
+      return a === b ? 0 : anum && !bnum ? -1 : bnum && !anum ? 1 : a < b ? -1 : 1;
+    };
+    var rcompareIdentifiers = (a, b) => compareIdentifiers(b, a);
+    module2.exports = {
+      compareIdentifiers,
+      rcompareIdentifiers
+    };
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/classes/semver.js
+var require_semver = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/classes/semver.js"(exports2, module2) {
+    "use strict";
+    var debug = require_debug5();
+    var { MAX_LENGTH, MAX_SAFE_INTEGER } = require_constants();
+    var { safeRe: re, t } = require_re();
+    var parseOptions = require_parse_options();
+    var { compareIdentifiers } = require_identifiers();
+    var SemVer = class _SemVer {
+      constructor(version2, options) {
+        options = parseOptions(options);
+        if (version2 instanceof _SemVer) {
+          if (version2.loose === !!options.loose && version2.includePrerelease === !!options.includePrerelease) {
+            return version2;
+          } else {
+            version2 = version2.version;
+          }
+        } else if (typeof version2 !== "string") {
+          throw new TypeError(`Invalid version. Must be a string. Got type "${typeof version2}".`);
+        }
+        if (version2.length > MAX_LENGTH) {
+          throw new TypeError(
+            `version is longer than ${MAX_LENGTH} characters`
+          );
+        }
+        debug("SemVer", version2, options);
+        this.options = options;
+        this.loose = !!options.loose;
+        this.includePrerelease = !!options.includePrerelease;
+        const m = version2.trim().match(options.loose ? re[t.LOOSE] : re[t.FULL]);
+        if (!m) {
+          throw new TypeError(`Invalid Version: ${version2}`);
+        }
+        this.raw = version2;
+        this.major = +m[1];
+        this.minor = +m[2];
+        this.patch = +m[3];
+        if (this.major > MAX_SAFE_INTEGER || this.major < 0) {
+          throw new TypeError("Invalid major version");
+        }
+        if (this.minor > MAX_SAFE_INTEGER || this.minor < 0) {
+          throw new TypeError("Invalid minor version");
+        }
+        if (this.patch > MAX_SAFE_INTEGER || this.patch < 0) {
+          throw new TypeError("Invalid patch version");
+        }
+        if (!m[4]) {
+          this.prerelease = [];
+        } else {
+          this.prerelease = m[4].split(".").map((id) => {
+            if (/^[0-9]+$/.test(id)) {
+              const num = +id;
+              if (num >= 0 && num < MAX_SAFE_INTEGER) {
+                return num;
+              }
+            }
+            return id;
+          });
+        }
+        this.build = m[5] ? m[5].split(".") : [];
+        this.format();
+      }
+      format() {
+        this.version = `${this.major}.${this.minor}.${this.patch}`;
+        if (this.prerelease.length) {
+          this.version += `-${this.prerelease.join(".")}`;
+        }
+        return this.version;
+      }
+      toString() {
+        return this.version;
+      }
+      compare(other) {
+        debug("SemVer.compare", this.version, this.options, other);
+        if (!(other instanceof _SemVer)) {
+          if (typeof other === "string" && other === this.version) {
+            return 0;
+          }
+          other = new _SemVer(other, this.options);
+        }
+        if (other.version === this.version) {
+          return 0;
+        }
+        return this.compareMain(other) || this.comparePre(other);
+      }
+      compareMain(other) {
+        if (!(other instanceof _SemVer)) {
+          other = new _SemVer(other, this.options);
+        }
+        if (this.major < other.major) {
+          return -1;
+        }
+        if (this.major > other.major) {
+          return 1;
+        }
+        if (this.minor < other.minor) {
+          return -1;
+        }
+        if (this.minor > other.minor) {
+          return 1;
+        }
+        if (this.patch < other.patch) {
+          return -1;
+        }
+        if (this.patch > other.patch) {
+          return 1;
+        }
+        return 0;
+      }
+      comparePre(other) {
+        if (!(other instanceof _SemVer)) {
+          other = new _SemVer(other, this.options);
+        }
+        if (this.prerelease.length && !other.prerelease.length) {
+          return -1;
+        } else if (!this.prerelease.length && other.prerelease.length) {
+          return 1;
+        } else if (!this.prerelease.length && !other.prerelease.length) {
+          return 0;
+        }
+        let i = 0;
+        do {
+          const a = this.prerelease[i];
+          const b = other.prerelease[i];
+          debug("prerelease compare", i, a, b);
+          if (a === void 0 && b === void 0) {
+            return 0;
+          } else if (b === void 0) {
+            return 1;
+          } else if (a === void 0) {
+            return -1;
+          } else if (a === b) {
+            continue;
+          } else {
+            return compareIdentifiers(a, b);
+          }
+        } while (++i);
+      }
+      compareBuild(other) {
+        if (!(other instanceof _SemVer)) {
+          other = new _SemVer(other, this.options);
+        }
+        let i = 0;
+        do {
+          const a = this.build[i];
+          const b = other.build[i];
+          debug("build compare", i, a, b);
+          if (a === void 0 && b === void 0) {
+            return 0;
+          } else if (b === void 0) {
+            return 1;
+          } else if (a === void 0) {
+            return -1;
+          } else if (a === b) {
+            continue;
+          } else {
+            return compareIdentifiers(a, b);
+          }
+        } while (++i);
+      }
+      // preminor will bump the version up to the next minor release, and immediately
+      // down to pre-release. premajor and prepatch work the same way.
+      inc(release, identifier, identifierBase) {
+        if (release.startsWith("pre")) {
+          if (!identifier && identifierBase === false) {
+            throw new Error("invalid increment argument: identifier is empty");
+          }
+          if (identifier) {
+            const match = `-${identifier}`.match(this.options.loose ? re[t.PRERELEASELOOSE] : re[t.PRERELEASE]);
+            if (!match || match[1] !== identifier) {
+              throw new Error(`invalid identifier: ${identifier}`);
+            }
+          }
+        }
+        switch (release) {
+          case "premajor":
+            this.prerelease.length = 0;
+            this.patch = 0;
+            this.minor = 0;
+            this.major++;
+            this.inc("pre", identifier, identifierBase);
+            break;
+          case "preminor":
+            this.prerelease.length = 0;
+            this.patch = 0;
+            this.minor++;
+            this.inc("pre", identifier, identifierBase);
+            break;
+          case "prepatch":
+            this.prerelease.length = 0;
+            this.inc("patch", identifier, identifierBase);
+            this.inc("pre", identifier, identifierBase);
+            break;
+          // If the input is a non-prerelease version, this acts the same as
+          // prepatch.
+          case "prerelease":
+            if (this.prerelease.length === 0) {
+              this.inc("patch", identifier, identifierBase);
+            }
+            this.inc("pre", identifier, identifierBase);
+            break;
+          case "release":
+            if (this.prerelease.length === 0) {
+              throw new Error(`version ${this.raw} is not a prerelease`);
+            }
+            this.prerelease.length = 0;
+            break;
+          case "major":
+            if (this.minor !== 0 || this.patch !== 0 || this.prerelease.length === 0) {
+              this.major++;
+            }
+            this.minor = 0;
+            this.patch = 0;
+            this.prerelease = [];
+            break;
+          case "minor":
+            if (this.patch !== 0 || this.prerelease.length === 0) {
+              this.minor++;
+            }
+            this.patch = 0;
+            this.prerelease = [];
+            break;
+          case "patch":
+            if (this.prerelease.length === 0) {
+              this.patch++;
+            }
+            this.prerelease = [];
+            break;
+          // This probably shouldn't be used publicly.
+          // 1.0.0 'pre' would become 1.0.0-0 which is the wrong direction.
+          case "pre": {
+            const base = Number(identifierBase) ? 1 : 0;
+            if (this.prerelease.length === 0) {
+              this.prerelease = [base];
+            } else {
+              let i = this.prerelease.length;
+              while (--i >= 0) {
+                if (typeof this.prerelease[i] === "number") {
+                  this.prerelease[i]++;
+                  i = -2;
+                }
+              }
+              if (i === -1) {
+                if (identifier === this.prerelease.join(".") && identifierBase === false) {
+                  throw new Error("invalid increment argument: identifier already exists");
+                }
+                this.prerelease.push(base);
+              }
+            }
+            if (identifier) {
+              let prerelease = [identifier, base];
+              if (identifierBase === false) {
+                prerelease = [identifier];
+              }
+              if (compareIdentifiers(this.prerelease[0], identifier) === 0) {
+                if (isNaN(this.prerelease[1])) {
+                  this.prerelease = prerelease;
+                }
+              } else {
+                this.prerelease = prerelease;
+              }
+            }
+            break;
+          }
+          default:
+            throw new Error(`invalid increment argument: ${release}`);
+        }
+        this.raw = this.format();
+        if (this.build.length) {
+          this.raw += `+${this.build.join(".")}`;
+        }
+        return this;
+      }
+    };
+    module2.exports = SemVer;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/parse.js
+var require_parse2 = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/parse.js"(exports2, module2) {
+    "use strict";
+    var SemVer = require_semver();
+    var parse = (version2, options, throwErrors = false) => {
+      if (version2 instanceof SemVer) {
+        return version2;
+      }
+      try {
+        return new SemVer(version2, options);
+      } catch (er) {
+        if (!throwErrors) {
           return null;
         }
-        if (typeof prop !== "object") {
-          return prop;
-        }
-        obj = prop;
-      }
-      return null;
-    };
-  }
-});
-
-// node_modules/passport-local/lib/strategy.js
-var require_strategy2 = __commonJS({
-  "node_modules/passport-local/lib/strategy.js"(exports2, module2) {
-    var passport2 = require_lib3();
-    var util2 = require("util");
-    var lookup = require_utils3().lookup;
-    function Strategy(options, verify) {
-      if (typeof options == "function") {
-        verify = options;
-        options = {};
-      }
-      if (!verify) {
-        throw new TypeError("LocalStrategy requires a verify callback");
-      }
-      this._usernameField = options.usernameField || "username";
-      this._passwordField = options.passwordField || "password";
-      passport2.Strategy.call(this);
-      this.name = "local";
-      this._verify = verify;
-      this._passReqToCallback = options.passReqToCallback;
-    }
-    util2.inherits(Strategy, passport2.Strategy);
-    Strategy.prototype.authenticate = function(req, options) {
-      options = options || {};
-      var username = lookup(req.body, this._usernameField) || lookup(req.query, this._usernameField);
-      var password = lookup(req.body, this._passwordField) || lookup(req.query, this._passwordField);
-      if (!username || !password) {
-        return this.fail({ message: options.badRequestMessage || "Missing credentials" }, 400);
-      }
-      var self = this;
-      function verified(err, user, info) {
-        if (err) {
-          return self.error(err);
-        }
-        if (!user) {
-          return self.fail(info);
-        }
-        self.success(user, info);
-      }
-      try {
-        if (self._passReqToCallback) {
-          this._verify(req, username, password, verified);
-        } else {
-          this._verify(username, password, verified);
-        }
-      } catch (ex) {
-        return self.error(ex);
+        throw er;
       }
     };
-    module2.exports = Strategy;
+    module2.exports = parse;
   }
 });
 
-// node_modules/passport-local/lib/index.js
-var require_lib5 = __commonJS({
-  "node_modules/passport-local/lib/index.js"(exports2, module2) {
-    var Strategy = require_strategy2();
-    exports2 = module2.exports = Strategy;
-    exports2.Strategy = Strategy;
-  }
-});
-
-// node_modules/express-session/node_modules/cookie/index.js
-var require_cookie2 = __commonJS({
-  "node_modules/express-session/node_modules/cookie/index.js"(exports2) {
+// node_modules/jsonwebtoken/node_modules/semver/functions/valid.js
+var require_valid = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/valid.js"(exports2, module2) {
     "use strict";
-    exports2.parse = parse;
-    exports2.serialize = serialize;
-    var __toString = Object.prototype.toString;
-    var __hasOwnProperty = Object.prototype.hasOwnProperty;
-    var cookieNameRegExp = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
-    var cookieValueRegExp = /^("?)[\u0021\u0023-\u002B\u002D-\u003A\u003C-\u005B\u005D-\u007E]*\1$/;
-    var domainValueRegExp = /^([.]?[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)([.][a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i;
-    var pathValueRegExp = /^[\u0020-\u003A\u003D-\u007E]*$/;
-    function parse(str, opt) {
-      if (typeof str !== "string") {
-        throw new TypeError("argument str must be a string");
-      }
-      var obj = {};
-      var len = str.length;
-      if (len < 2) return obj;
-      var dec = opt && opt.decode || decode;
-      var index = 0;
-      var eqIdx = 0;
-      var endIdx = 0;
-      do {
-        eqIdx = str.indexOf("=", index);
-        if (eqIdx === -1) break;
-        endIdx = str.indexOf(";", index);
-        if (endIdx === -1) {
-          endIdx = len;
-        } else if (eqIdx > endIdx) {
-          index = str.lastIndexOf(";", eqIdx - 1) + 1;
-          continue;
-        }
-        var keyStartIdx = startIndex(str, index, eqIdx);
-        var keyEndIdx = endIndex(str, eqIdx, keyStartIdx);
-        var key = str.slice(keyStartIdx, keyEndIdx);
-        if (!__hasOwnProperty.call(obj, key)) {
-          var valStartIdx = startIndex(str, eqIdx + 1, endIdx);
-          var valEndIdx = endIndex(str, endIdx, valStartIdx);
-          if (str.charCodeAt(valStartIdx) === 34 && str.charCodeAt(valEndIdx - 1) === 34) {
-            valStartIdx++;
-            valEndIdx--;
-          }
-          var val = str.slice(valStartIdx, valEndIdx);
-          obj[key] = tryDecode(val, dec);
-        }
-        index = endIdx + 1;
-      } while (index < len);
-      return obj;
-    }
-    function startIndex(str, index, max) {
-      do {
-        var code = str.charCodeAt(index);
-        if (code !== 32 && code !== 9) return index;
-      } while (++index < max);
-      return max;
-    }
-    function endIndex(str, index, min) {
-      while (index > min) {
-        var code = str.charCodeAt(--index);
-        if (code !== 32 && code !== 9) return index + 1;
-      }
-      return min;
-    }
-    function serialize(name, val, opt) {
-      var enc = opt && opt.encode || encodeURIComponent;
-      if (typeof enc !== "function") {
-        throw new TypeError("option encode is invalid");
-      }
-      if (!cookieNameRegExp.test(name)) {
-        throw new TypeError("argument name is invalid");
-      }
-      var value = enc(val);
-      if (!cookieValueRegExp.test(value)) {
-        throw new TypeError("argument val is invalid");
-      }
-      var str = name + "=" + value;
-      if (!opt) return str;
-      if (null != opt.maxAge) {
-        var maxAge = Math.floor(opt.maxAge);
-        if (!isFinite(maxAge)) {
-          throw new TypeError("option maxAge is invalid");
-        }
-        str += "; Max-Age=" + maxAge;
-      }
-      if (opt.domain) {
-        if (!domainValueRegExp.test(opt.domain)) {
-          throw new TypeError("option domain is invalid");
-        }
-        str += "; Domain=" + opt.domain;
-      }
-      if (opt.path) {
-        if (!pathValueRegExp.test(opt.path)) {
-          throw new TypeError("option path is invalid");
-        }
-        str += "; Path=" + opt.path;
-      }
-      if (opt.expires) {
-        var expires = opt.expires;
-        if (!isDate(expires) || isNaN(expires.valueOf())) {
-          throw new TypeError("option expires is invalid");
-        }
-        str += "; Expires=" + expires.toUTCString();
-      }
-      if (opt.httpOnly) {
-        str += "; HttpOnly";
-      }
-      if (opt.secure) {
-        str += "; Secure";
-      }
-      if (opt.partitioned) {
-        str += "; Partitioned";
-      }
-      if (opt.priority) {
-        var priority = typeof opt.priority === "string" ? opt.priority.toLowerCase() : opt.priority;
-        switch (priority) {
-          case "low":
-            str += "; Priority=Low";
-            break;
-          case "medium":
-            str += "; Priority=Medium";
-            break;
-          case "high":
-            str += "; Priority=High";
-            break;
-          default:
-            throw new TypeError("option priority is invalid");
-        }
-      }
-      if (opt.sameSite) {
-        var sameSite = typeof opt.sameSite === "string" ? opt.sameSite.toLowerCase() : opt.sameSite;
-        switch (sameSite) {
-          case true:
-            str += "; SameSite=Strict";
-            break;
-          case "lax":
-            str += "; SameSite=Lax";
-            break;
-          case "strict":
-            str += "; SameSite=Strict";
-            break;
-          case "none":
-            str += "; SameSite=None";
-            break;
-          default:
-            throw new TypeError("option sameSite is invalid");
-        }
-      }
-      return str;
-    }
-    function decode(str) {
-      return str.indexOf("%") !== -1 ? decodeURIComponent(str) : str;
-    }
-    function isDate(val) {
-      return __toString.call(val) === "[object Date]";
-    }
-    function tryDecode(str, decode2) {
-      try {
-        return decode2(str);
-      } catch (e) {
-        return str;
-      }
-    }
-  }
-});
-
-// node_modules/express-session/node_modules/ms/index.js
-var require_ms6 = __commonJS({
-  "node_modules/express-session/node_modules/ms/index.js"(exports2, module2) {
-    var s = 1e3;
-    var m = s * 60;
-    var h = m * 60;
-    var d = h * 24;
-    var y = d * 365.25;
-    module2.exports = function(val, options) {
-      options = options || {};
-      var type = typeof val;
-      if (type === "string" && val.length > 0) {
-        return parse(val);
-      } else if (type === "number" && isNaN(val) === false) {
-        return options.long ? fmtLong(val) : fmtShort(val);
-      }
-      throw new Error(
-        "val is not a non-empty string or a valid number. val=" + JSON.stringify(val)
-      );
+    var parse = require_parse2();
+    var valid = (version2, options) => {
+      const v = parse(version2, options);
+      return v ? v.version : null;
     };
-    function parse(str) {
-      str = String(str);
-      if (str.length > 100) {
-        return;
-      }
-      var match = /^((?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|years?|yrs?|y)?$/i.exec(
-        str
-      );
-      if (!match) {
-        return;
-      }
-      var n = parseFloat(match[1]);
-      var type = (match[2] || "ms").toLowerCase();
-      switch (type) {
-        case "years":
-        case "year":
-        case "yrs":
-        case "yr":
-        case "y":
-          return n * y;
-        case "days":
-        case "day":
-        case "d":
-          return n * d;
-        case "hours":
-        case "hour":
-        case "hrs":
-        case "hr":
-        case "h":
-          return n * h;
-        case "minutes":
-        case "minute":
-        case "mins":
-        case "min":
-        case "m":
-          return n * m;
-        case "seconds":
-        case "second":
-        case "secs":
-        case "sec":
-        case "s":
-          return n * s;
-        case "milliseconds":
-        case "millisecond":
-        case "msecs":
-        case "msec":
-        case "ms":
-          return n;
-        default:
-          return void 0;
-      }
-    }
-    function fmtShort(ms) {
-      if (ms >= d) {
-        return Math.round(ms / d) + "d";
-      }
-      if (ms >= h) {
-        return Math.round(ms / h) + "h";
-      }
-      if (ms >= m) {
-        return Math.round(ms / m) + "m";
-      }
-      if (ms >= s) {
-        return Math.round(ms / s) + "s";
-      }
-      return ms + "ms";
-    }
-    function fmtLong(ms) {
-      return plural(ms, d, "day") || plural(ms, h, "hour") || plural(ms, m, "minute") || plural(ms, s, "second") || ms + " ms";
-    }
-    function plural(ms, n, name) {
-      if (ms < n) {
-        return;
-      }
-      if (ms < n * 1.5) {
-        return Math.floor(ms / n) + " " + name;
-      }
-      return Math.ceil(ms / n) + " " + name + "s";
-    }
+    module2.exports = valid;
   }
 });
 
-// node_modules/express-session/node_modules/debug/src/debug.js
-var require_debug5 = __commonJS({
-  "node_modules/express-session/node_modules/debug/src/debug.js"(exports2, module2) {
-    exports2 = module2.exports = createDebug.debug = createDebug["default"] = createDebug;
-    exports2.coerce = coerce2;
-    exports2.disable = disable;
-    exports2.enable = enable;
-    exports2.enabled = enabled;
-    exports2.humanize = require_ms6();
-    exports2.names = [];
-    exports2.skips = [];
-    exports2.formatters = {};
-    var prevTime;
-    function selectColor(namespace) {
-      var hash = 0, i;
-      for (i in namespace) {
-        hash = (hash << 5) - hash + namespace.charCodeAt(i);
-        hash |= 0;
+// node_modules/jsonwebtoken/node_modules/semver/functions/clean.js
+var require_clean = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/clean.js"(exports2, module2) {
+    "use strict";
+    var parse = require_parse2();
+    var clean = (version2, options) => {
+      const s = parse(version2.trim().replace(/^[=v]+/, ""), options);
+      return s ? s.version : null;
+    };
+    module2.exports = clean;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/inc.js
+var require_inc = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/inc.js"(exports2, module2) {
+    "use strict";
+    var SemVer = require_semver();
+    var inc = (version2, release, options, identifier, identifierBase) => {
+      if (typeof options === "string") {
+        identifierBase = identifier;
+        identifier = options;
+        options = void 0;
       }
-      return exports2.colors[Math.abs(hash) % exports2.colors.length];
-    }
-    function createDebug(namespace) {
-      function debug() {
-        if (!debug.enabled) return;
-        var self = debug;
-        var curr = +/* @__PURE__ */ new Date();
-        var ms = curr - (prevTime || curr);
-        self.diff = ms;
-        self.prev = prevTime;
-        self.curr = curr;
-        prevTime = curr;
-        var args = new Array(arguments.length);
-        for (var i = 0; i < args.length; i++) {
-          args[i] = arguments[i];
+      try {
+        return new SemVer(
+          version2 instanceof SemVer ? version2.version : version2,
+          options
+        ).inc(release, identifier, identifierBase).version;
+      } catch (er) {
+        return null;
+      }
+    };
+    module2.exports = inc;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/diff.js
+var require_diff = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/diff.js"(exports2, module2) {
+    "use strict";
+    var parse = require_parse2();
+    var diff = (version1, version2) => {
+      const v1 = parse(version1, null, true);
+      const v2 = parse(version2, null, true);
+      const comparison = v1.compare(v2);
+      if (comparison === 0) {
+        return null;
+      }
+      const v1Higher = comparison > 0;
+      const highVersion = v1Higher ? v1 : v2;
+      const lowVersion = v1Higher ? v2 : v1;
+      const highHasPre = !!highVersion.prerelease.length;
+      const lowHasPre = !!lowVersion.prerelease.length;
+      if (lowHasPre && !highHasPre) {
+        if (!lowVersion.patch && !lowVersion.minor) {
+          return "major";
         }
-        args[0] = exports2.coerce(args[0]);
-        if ("string" !== typeof args[0]) {
-          args.unshift("%O");
-        }
-        var index = 0;
-        args[0] = args[0].replace(/%([a-zA-Z%])/g, function(match, format) {
-          if (match === "%%") return match;
-          index++;
-          var formatter = exports2.formatters[format];
-          if ("function" === typeof formatter) {
-            var val = args[index];
-            match = formatter.call(self, val);
-            args.splice(index, 1);
-            index--;
+        if (lowVersion.compareMain(highVersion) === 0) {
+          if (lowVersion.minor && !lowVersion.patch) {
+            return "minor";
           }
-          return match;
-        });
-        exports2.formatArgs.call(self, args);
-        var logFn = debug.log || exports2.log || console.log.bind(console);
-        logFn.apply(self, args);
-      }
-      debug.namespace = namespace;
-      debug.enabled = exports2.enabled(namespace);
-      debug.useColors = exports2.useColors();
-      debug.color = selectColor(namespace);
-      if ("function" === typeof exports2.init) {
-        exports2.init(debug);
-      }
-      return debug;
-    }
-    function enable(namespaces) {
-      exports2.save(namespaces);
-      exports2.names = [];
-      exports2.skips = [];
-      var split = (typeof namespaces === "string" ? namespaces : "").split(/[\s,]+/);
-      var len = split.length;
-      for (var i = 0; i < len; i++) {
-        if (!split[i]) continue;
-        namespaces = split[i].replace(/\*/g, ".*?");
-        if (namespaces[0] === "-") {
-          exports2.skips.push(new RegExp("^" + namespaces.substr(1) + "$"));
-        } else {
-          exports2.names.push(new RegExp("^" + namespaces + "$"));
+          return "patch";
         }
       }
-    }
-    function disable() {
-      exports2.enable("");
-    }
-    function enabled(name) {
-      var i, len;
-      for (i = 0, len = exports2.skips.length; i < len; i++) {
-        if (exports2.skips[i].test(name)) {
+      const prefix = highHasPre ? "pre" : "";
+      if (v1.major !== v2.major) {
+        return prefix + "major";
+      }
+      if (v1.minor !== v2.minor) {
+        return prefix + "minor";
+      }
+      if (v1.patch !== v2.patch) {
+        return prefix + "patch";
+      }
+      return "prerelease";
+    };
+    module2.exports = diff;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/major.js
+var require_major = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/major.js"(exports2, module2) {
+    "use strict";
+    var SemVer = require_semver();
+    var major = (a, loose) => new SemVer(a, loose).major;
+    module2.exports = major;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/minor.js
+var require_minor = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/minor.js"(exports2, module2) {
+    "use strict";
+    var SemVer = require_semver();
+    var minor = (a, loose) => new SemVer(a, loose).minor;
+    module2.exports = minor;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/patch.js
+var require_patch = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/patch.js"(exports2, module2) {
+    "use strict";
+    var SemVer = require_semver();
+    var patch = (a, loose) => new SemVer(a, loose).patch;
+    module2.exports = patch;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/prerelease.js
+var require_prerelease = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/prerelease.js"(exports2, module2) {
+    "use strict";
+    var parse = require_parse2();
+    var prerelease = (version2, options) => {
+      const parsed = parse(version2, options);
+      return parsed && parsed.prerelease.length ? parsed.prerelease : null;
+    };
+    module2.exports = prerelease;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/compare.js
+var require_compare = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/compare.js"(exports2, module2) {
+    "use strict";
+    var SemVer = require_semver();
+    var compare = (a, b, loose) => new SemVer(a, loose).compare(new SemVer(b, loose));
+    module2.exports = compare;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/rcompare.js
+var require_rcompare = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/rcompare.js"(exports2, module2) {
+    "use strict";
+    var compare = require_compare();
+    var rcompare = (a, b, loose) => compare(b, a, loose);
+    module2.exports = rcompare;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/compare-loose.js
+var require_compare_loose = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/compare-loose.js"(exports2, module2) {
+    "use strict";
+    var compare = require_compare();
+    var compareLoose = (a, b) => compare(a, b, true);
+    module2.exports = compareLoose;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/compare-build.js
+var require_compare_build = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/compare-build.js"(exports2, module2) {
+    "use strict";
+    var SemVer = require_semver();
+    var compareBuild = (a, b, loose) => {
+      const versionA = new SemVer(a, loose);
+      const versionB = new SemVer(b, loose);
+      return versionA.compare(versionB) || versionA.compareBuild(versionB);
+    };
+    module2.exports = compareBuild;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/sort.js
+var require_sort = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/sort.js"(exports2, module2) {
+    "use strict";
+    var compareBuild = require_compare_build();
+    var sort = (list, loose) => list.sort((a, b) => compareBuild(a, b, loose));
+    module2.exports = sort;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/rsort.js
+var require_rsort = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/rsort.js"(exports2, module2) {
+    "use strict";
+    var compareBuild = require_compare_build();
+    var rsort = (list, loose) => list.sort((a, b) => compareBuild(b, a, loose));
+    module2.exports = rsort;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/gt.js
+var require_gt = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/gt.js"(exports2, module2) {
+    "use strict";
+    var compare = require_compare();
+    var gt2 = (a, b, loose) => compare(a, b, loose) > 0;
+    module2.exports = gt2;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/lt.js
+var require_lt = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/lt.js"(exports2, module2) {
+    "use strict";
+    var compare = require_compare();
+    var lt2 = (a, b, loose) => compare(a, b, loose) < 0;
+    module2.exports = lt2;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/eq.js
+var require_eq = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/eq.js"(exports2, module2) {
+    "use strict";
+    var compare = require_compare();
+    var eq2 = (a, b, loose) => compare(a, b, loose) === 0;
+    module2.exports = eq2;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/neq.js
+var require_neq = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/neq.js"(exports2, module2) {
+    "use strict";
+    var compare = require_compare();
+    var neq = (a, b, loose) => compare(a, b, loose) !== 0;
+    module2.exports = neq;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/gte.js
+var require_gte = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/gte.js"(exports2, module2) {
+    "use strict";
+    var compare = require_compare();
+    var gte2 = (a, b, loose) => compare(a, b, loose) >= 0;
+    module2.exports = gte2;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/lte.js
+var require_lte = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/lte.js"(exports2, module2) {
+    "use strict";
+    var compare = require_compare();
+    var lte2 = (a, b, loose) => compare(a, b, loose) <= 0;
+    module2.exports = lte2;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/cmp.js
+var require_cmp = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/cmp.js"(exports2, module2) {
+    "use strict";
+    var eq2 = require_eq();
+    var neq = require_neq();
+    var gt2 = require_gt();
+    var gte2 = require_gte();
+    var lt2 = require_lt();
+    var lte2 = require_lte();
+    var cmp = (a, op, b, loose) => {
+      switch (op) {
+        case "===":
+          if (typeof a === "object") {
+            a = a.version;
+          }
+          if (typeof b === "object") {
+            b = b.version;
+          }
+          return a === b;
+        case "!==":
+          if (typeof a === "object") {
+            a = a.version;
+          }
+          if (typeof b === "object") {
+            b = b.version;
+          }
+          return a !== b;
+        case "":
+        case "=":
+        case "==":
+          return eq2(a, b, loose);
+        case "!=":
+          return neq(a, b, loose);
+        case ">":
+          return gt2(a, b, loose);
+        case ">=":
+          return gte2(a, b, loose);
+        case "<":
+          return lt2(a, b, loose);
+        case "<=":
+          return lte2(a, b, loose);
+        default:
+          throw new TypeError(`Invalid operator: ${op}`);
+      }
+    };
+    module2.exports = cmp;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/coerce.js
+var require_coerce = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/coerce.js"(exports2, module2) {
+    "use strict";
+    var SemVer = require_semver();
+    var parse = require_parse2();
+    var { safeRe: re, t } = require_re();
+    var coerce2 = (version2, options) => {
+      if (version2 instanceof SemVer) {
+        return version2;
+      }
+      if (typeof version2 === "number") {
+        version2 = String(version2);
+      }
+      if (typeof version2 !== "string") {
+        return null;
+      }
+      options = options || {};
+      let match = null;
+      if (!options.rtl) {
+        match = version2.match(options.includePrerelease ? re[t.COERCEFULL] : re[t.COERCE]);
+      } else {
+        const coerceRtlRegex = options.includePrerelease ? re[t.COERCERTLFULL] : re[t.COERCERTL];
+        let next;
+        while ((next = coerceRtlRegex.exec(version2)) && (!match || match.index + match[0].length !== version2.length)) {
+          if (!match || next.index + next[0].length !== match.index + match[0].length) {
+            match = next;
+          }
+          coerceRtlRegex.lastIndex = next.index + next[1].length + next[2].length;
+        }
+        coerceRtlRegex.lastIndex = -1;
+      }
+      if (match === null) {
+        return null;
+      }
+      const major = match[2];
+      const minor = match[3] || "0";
+      const patch = match[4] || "0";
+      const prerelease = options.includePrerelease && match[5] ? `-${match[5]}` : "";
+      const build = options.includePrerelease && match[6] ? `+${match[6]}` : "";
+      return parse(`${major}.${minor}.${patch}${prerelease}${build}`, options);
+    };
+    module2.exports = coerce2;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/internal/lrucache.js
+var require_lrucache = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/internal/lrucache.js"(exports2, module2) {
+    "use strict";
+    var LRUCache = class {
+      constructor() {
+        this.max = 1e3;
+        this.map = /* @__PURE__ */ new Map();
+      }
+      get(key) {
+        const value = this.map.get(key);
+        if (value === void 0) {
+          return void 0;
+        } else {
+          this.map.delete(key);
+          this.map.set(key, value);
+          return value;
+        }
+      }
+      delete(key) {
+        return this.map.delete(key);
+      }
+      set(key, value) {
+        const deleted = this.delete(key);
+        if (!deleted && value !== void 0) {
+          if (this.map.size >= this.max) {
+            const firstKey = this.map.keys().next().value;
+            this.delete(firstKey);
+          }
+          this.map.set(key, value);
+        }
+        return this;
+      }
+    };
+    module2.exports = LRUCache;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/classes/range.js
+var require_range2 = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/classes/range.js"(exports2, module2) {
+    "use strict";
+    var SPACE_CHARACTERS = /\s+/g;
+    var Range = class _Range {
+      constructor(range, options) {
+        options = parseOptions(options);
+        if (range instanceof _Range) {
+          if (range.loose === !!options.loose && range.includePrerelease === !!options.includePrerelease) {
+            return range;
+          } else {
+            return new _Range(range.raw, options);
+          }
+        }
+        if (range instanceof Comparator) {
+          this.raw = range.value;
+          this.set = [[range]];
+          this.formatted = void 0;
+          return this;
+        }
+        this.options = options;
+        this.loose = !!options.loose;
+        this.includePrerelease = !!options.includePrerelease;
+        this.raw = range.trim().replace(SPACE_CHARACTERS, " ");
+        this.set = this.raw.split("||").map((r) => this.parseRange(r.trim())).filter((c) => c.length);
+        if (!this.set.length) {
+          throw new TypeError(`Invalid SemVer Range: ${this.raw}`);
+        }
+        if (this.set.length > 1) {
+          const first = this.set[0];
+          this.set = this.set.filter((c) => !isNullSet(c[0]));
+          if (this.set.length === 0) {
+            this.set = [first];
+          } else if (this.set.length > 1) {
+            for (const c of this.set) {
+              if (c.length === 1 && isAny(c[0])) {
+                this.set = [c];
+                break;
+              }
+            }
+          }
+        }
+        this.formatted = void 0;
+      }
+      get range() {
+        if (this.formatted === void 0) {
+          this.formatted = "";
+          for (let i = 0; i < this.set.length; i++) {
+            if (i > 0) {
+              this.formatted += "||";
+            }
+            const comps = this.set[i];
+            for (let k = 0; k < comps.length; k++) {
+              if (k > 0) {
+                this.formatted += " ";
+              }
+              this.formatted += comps[k].toString().trim();
+            }
+          }
+        }
+        return this.formatted;
+      }
+      format() {
+        return this.range;
+      }
+      toString() {
+        return this.range;
+      }
+      parseRange(range) {
+        const memoOpts = (this.options.includePrerelease && FLAG_INCLUDE_PRERELEASE) | (this.options.loose && FLAG_LOOSE);
+        const memoKey = memoOpts + ":" + range;
+        const cached = cache.get(memoKey);
+        if (cached) {
+          return cached;
+        }
+        const loose = this.options.loose;
+        const hr = loose ? re[t.HYPHENRANGELOOSE] : re[t.HYPHENRANGE];
+        range = range.replace(hr, hyphenReplace(this.options.includePrerelease));
+        debug("hyphen replace", range);
+        range = range.replace(re[t.COMPARATORTRIM], comparatorTrimReplace);
+        debug("comparator trim", range);
+        range = range.replace(re[t.TILDETRIM], tildeTrimReplace);
+        debug("tilde trim", range);
+        range = range.replace(re[t.CARETTRIM], caretTrimReplace);
+        debug("caret trim", range);
+        let rangeList = range.split(" ").map((comp) => parseComparator(comp, this.options)).join(" ").split(/\s+/).map((comp) => replaceGTE0(comp, this.options));
+        if (loose) {
+          rangeList = rangeList.filter((comp) => {
+            debug("loose invalid filter", comp, this.options);
+            return !!comp.match(re[t.COMPARATORLOOSE]);
+          });
+        }
+        debug("range list", rangeList);
+        const rangeMap = /* @__PURE__ */ new Map();
+        const comparators = rangeList.map((comp) => new Comparator(comp, this.options));
+        for (const comp of comparators) {
+          if (isNullSet(comp)) {
+            return [comp];
+          }
+          rangeMap.set(comp.value, comp);
+        }
+        if (rangeMap.size > 1 && rangeMap.has("")) {
+          rangeMap.delete("");
+        }
+        const result = [...rangeMap.values()];
+        cache.set(memoKey, result);
+        return result;
+      }
+      intersects(range, options) {
+        if (!(range instanceof _Range)) {
+          throw new TypeError("a Range is required");
+        }
+        return this.set.some((thisComparators) => {
+          return isSatisfiable(thisComparators, options) && range.set.some((rangeComparators) => {
+            return isSatisfiable(rangeComparators, options) && thisComparators.every((thisComparator) => {
+              return rangeComparators.every((rangeComparator) => {
+                return thisComparator.intersects(rangeComparator, options);
+              });
+            });
+          });
+        });
+      }
+      // if ANY of the sets match ALL of its comparators, then pass
+      test(version2) {
+        if (!version2) {
+          return false;
+        }
+        if (typeof version2 === "string") {
+          try {
+            version2 = new SemVer(version2, this.options);
+          } catch (er) {
+            return false;
+          }
+        }
+        for (let i = 0; i < this.set.length; i++) {
+          if (testSet(this.set[i], version2, this.options)) {
+            return true;
+          }
+        }
+        return false;
+      }
+    };
+    module2.exports = Range;
+    var LRU = require_lrucache();
+    var cache = new LRU();
+    var parseOptions = require_parse_options();
+    var Comparator = require_comparator();
+    var debug = require_debug5();
+    var SemVer = require_semver();
+    var {
+      safeRe: re,
+      t,
+      comparatorTrimReplace,
+      tildeTrimReplace,
+      caretTrimReplace
+    } = require_re();
+    var { FLAG_INCLUDE_PRERELEASE, FLAG_LOOSE } = require_constants();
+    var isNullSet = (c) => c.value === "<0.0.0-0";
+    var isAny = (c) => c.value === "";
+    var isSatisfiable = (comparators, options) => {
+      let result = true;
+      const remainingComparators = comparators.slice();
+      let testComparator = remainingComparators.pop();
+      while (result && remainingComparators.length) {
+        result = remainingComparators.every((otherComparator) => {
+          return testComparator.intersects(otherComparator, options);
+        });
+        testComparator = remainingComparators.pop();
+      }
+      return result;
+    };
+    var parseComparator = (comp, options) => {
+      comp = comp.replace(re[t.BUILD], "");
+      debug("comp", comp, options);
+      comp = replaceCarets(comp, options);
+      debug("caret", comp);
+      comp = replaceTildes(comp, options);
+      debug("tildes", comp);
+      comp = replaceXRanges(comp, options);
+      debug("xrange", comp);
+      comp = replaceStars(comp, options);
+      debug("stars", comp);
+      return comp;
+    };
+    var isX = (id) => !id || id.toLowerCase() === "x" || id === "*";
+    var replaceTildes = (comp, options) => {
+      return comp.trim().split(/\s+/).map((c) => replaceTilde(c, options)).join(" ");
+    };
+    var replaceTilde = (comp, options) => {
+      const r = options.loose ? re[t.TILDELOOSE] : re[t.TILDE];
+      return comp.replace(r, (_, M, m, p, pr) => {
+        debug("tilde", comp, _, M, m, p, pr);
+        let ret;
+        if (isX(M)) {
+          ret = "";
+        } else if (isX(m)) {
+          ret = `>=${M}.0.0 <${+M + 1}.0.0-0`;
+        } else if (isX(p)) {
+          ret = `>=${M}.${m}.0 <${M}.${+m + 1}.0-0`;
+        } else if (pr) {
+          debug("replaceTilde pr", pr);
+          ret = `>=${M}.${m}.${p}-${pr} <${M}.${+m + 1}.0-0`;
+        } else {
+          ret = `>=${M}.${m}.${p} <${M}.${+m + 1}.0-0`;
+        }
+        debug("tilde return", ret);
+        return ret;
+      });
+    };
+    var replaceCarets = (comp, options) => {
+      return comp.trim().split(/\s+/).map((c) => replaceCaret(c, options)).join(" ");
+    };
+    var replaceCaret = (comp, options) => {
+      debug("caret", comp, options);
+      const r = options.loose ? re[t.CARETLOOSE] : re[t.CARET];
+      const z2 = options.includePrerelease ? "-0" : "";
+      return comp.replace(r, (_, M, m, p, pr) => {
+        debug("caret", comp, _, M, m, p, pr);
+        let ret;
+        if (isX(M)) {
+          ret = "";
+        } else if (isX(m)) {
+          ret = `>=${M}.0.0${z2} <${+M + 1}.0.0-0`;
+        } else if (isX(p)) {
+          if (M === "0") {
+            ret = `>=${M}.${m}.0${z2} <${M}.${+m + 1}.0-0`;
+          } else {
+            ret = `>=${M}.${m}.0${z2} <${+M + 1}.0.0-0`;
+          }
+        } else if (pr) {
+          debug("replaceCaret pr", pr);
+          if (M === "0") {
+            if (m === "0") {
+              ret = `>=${M}.${m}.${p}-${pr} <${M}.${m}.${+p + 1}-0`;
+            } else {
+              ret = `>=${M}.${m}.${p}-${pr} <${M}.${+m + 1}.0-0`;
+            }
+          } else {
+            ret = `>=${M}.${m}.${p}-${pr} <${+M + 1}.0.0-0`;
+          }
+        } else {
+          debug("no pr");
+          if (M === "0") {
+            if (m === "0") {
+              ret = `>=${M}.${m}.${p}${z2} <${M}.${m}.${+p + 1}-0`;
+            } else {
+              ret = `>=${M}.${m}.${p}${z2} <${M}.${+m + 1}.0-0`;
+            }
+          } else {
+            ret = `>=${M}.${m}.${p} <${+M + 1}.0.0-0`;
+          }
+        }
+        debug("caret return", ret);
+        return ret;
+      });
+    };
+    var replaceXRanges = (comp, options) => {
+      debug("replaceXRanges", comp, options);
+      return comp.split(/\s+/).map((c) => replaceXRange(c, options)).join(" ");
+    };
+    var replaceXRange = (comp, options) => {
+      comp = comp.trim();
+      const r = options.loose ? re[t.XRANGELOOSE] : re[t.XRANGE];
+      return comp.replace(r, (ret, gtlt, M, m, p, pr) => {
+        debug("xRange", comp, ret, gtlt, M, m, p, pr);
+        const xM = isX(M);
+        const xm = xM || isX(m);
+        const xp = xm || isX(p);
+        const anyX = xp;
+        if (gtlt === "=" && anyX) {
+          gtlt = "";
+        }
+        pr = options.includePrerelease ? "-0" : "";
+        if (xM) {
+          if (gtlt === ">" || gtlt === "<") {
+            ret = "<0.0.0-0";
+          } else {
+            ret = "*";
+          }
+        } else if (gtlt && anyX) {
+          if (xm) {
+            m = 0;
+          }
+          p = 0;
+          if (gtlt === ">") {
+            gtlt = ">=";
+            if (xm) {
+              M = +M + 1;
+              m = 0;
+              p = 0;
+            } else {
+              m = +m + 1;
+              p = 0;
+            }
+          } else if (gtlt === "<=") {
+            gtlt = "<";
+            if (xm) {
+              M = +M + 1;
+            } else {
+              m = +m + 1;
+            }
+          }
+          if (gtlt === "<") {
+            pr = "-0";
+          }
+          ret = `${gtlt + M}.${m}.${p}${pr}`;
+        } else if (xm) {
+          ret = `>=${M}.0.0${pr} <${+M + 1}.0.0-0`;
+        } else if (xp) {
+          ret = `>=${M}.${m}.0${pr} <${M}.${+m + 1}.0-0`;
+        }
+        debug("xRange return", ret);
+        return ret;
+      });
+    };
+    var replaceStars = (comp, options) => {
+      debug("replaceStars", comp, options);
+      return comp.trim().replace(re[t.STAR], "");
+    };
+    var replaceGTE0 = (comp, options) => {
+      debug("replaceGTE0", comp, options);
+      return comp.trim().replace(re[options.includePrerelease ? t.GTE0PRE : t.GTE0], "");
+    };
+    var hyphenReplace = (incPr) => ($0, from, fM, fm, fp, fpr, fb, to, tM, tm, tp, tpr) => {
+      if (isX(fM)) {
+        from = "";
+      } else if (isX(fm)) {
+        from = `>=${fM}.0.0${incPr ? "-0" : ""}`;
+      } else if (isX(fp)) {
+        from = `>=${fM}.${fm}.0${incPr ? "-0" : ""}`;
+      } else if (fpr) {
+        from = `>=${from}`;
+      } else {
+        from = `>=${from}${incPr ? "-0" : ""}`;
+      }
+      if (isX(tM)) {
+        to = "";
+      } else if (isX(tm)) {
+        to = `<${+tM + 1}.0.0-0`;
+      } else if (isX(tp)) {
+        to = `<${tM}.${+tm + 1}.0-0`;
+      } else if (tpr) {
+        to = `<=${tM}.${tm}.${tp}-${tpr}`;
+      } else if (incPr) {
+        to = `<${tM}.${tm}.${+tp + 1}-0`;
+      } else {
+        to = `<=${to}`;
+      }
+      return `${from} ${to}`.trim();
+    };
+    var testSet = (set, version2, options) => {
+      for (let i = 0; i < set.length; i++) {
+        if (!set[i].test(version2)) {
           return false;
         }
       }
-      for (i = 0, len = exports2.names.length; i < len; i++) {
-        if (exports2.names[i].test(name)) {
-          return true;
-        }
-      }
-      return false;
-    }
-    function coerce2(val) {
-      if (val instanceof Error) return val.stack || val.message;
-      return val;
-    }
-  }
-});
-
-// node_modules/express-session/node_modules/debug/src/browser.js
-var require_browser5 = __commonJS({
-  "node_modules/express-session/node_modules/debug/src/browser.js"(exports2, module2) {
-    exports2 = module2.exports = require_debug5();
-    exports2.log = log;
-    exports2.formatArgs = formatArgs;
-    exports2.save = save;
-    exports2.load = load;
-    exports2.useColors = useColors;
-    exports2.storage = "undefined" != typeof chrome && "undefined" != typeof chrome.storage ? chrome.storage.local : localstorage();
-    exports2.colors = [
-      "lightseagreen",
-      "forestgreen",
-      "goldenrod",
-      "dodgerblue",
-      "darkorchid",
-      "crimson"
-    ];
-    function useColors() {
-      if (typeof window !== "undefined" && window.process && window.process.type === "renderer") {
-        return true;
-      }
-      return typeof document !== "undefined" && document.documentElement && document.documentElement.style && document.documentElement.style.WebkitAppearance || // is firebug? http://stackoverflow.com/a/398120/376773
-      typeof window !== "undefined" && window.console && (window.console.firebug || window.console.exception && window.console.table) || // is firefox >= v31?
-      // https://developer.mozilla.org/en-US/docs/Tools/Web_Console#Styling_messages
-      typeof navigator !== "undefined" && navigator.userAgent && navigator.userAgent.toLowerCase().match(/firefox\/(\d+)/) && parseInt(RegExp.$1, 10) >= 31 || // double check webkit in userAgent just in case we are in a worker
-      typeof navigator !== "undefined" && navigator.userAgent && navigator.userAgent.toLowerCase().match(/applewebkit\/(\d+)/);
-    }
-    exports2.formatters.j = function(v) {
-      try {
-        return JSON.stringify(v);
-      } catch (err) {
-        return "[UnexpectedJSONParseError]: " + err.message;
-      }
-    };
-    function formatArgs(args) {
-      var useColors2 = this.useColors;
-      args[0] = (useColors2 ? "%c" : "") + this.namespace + (useColors2 ? " %c" : " ") + args[0] + (useColors2 ? "%c " : " ") + "+" + exports2.humanize(this.diff);
-      if (!useColors2) return;
-      var c = "color: " + this.color;
-      args.splice(1, 0, c, "color: inherit");
-      var index = 0;
-      var lastC = 0;
-      args[0].replace(/%[a-zA-Z%]/g, function(match) {
-        if ("%%" === match) return;
-        index++;
-        if ("%c" === match) {
-          lastC = index;
-        }
-      });
-      args.splice(lastC, 0, c);
-    }
-    function log() {
-      return "object" === typeof console && console.log && Function.prototype.apply.call(console.log, console, arguments);
-    }
-    function save(namespaces) {
-      try {
-        if (null == namespaces) {
-          exports2.storage.removeItem("debug");
-        } else {
-          exports2.storage.debug = namespaces;
-        }
-      } catch (e) {
-      }
-    }
-    function load() {
-      var r;
-      try {
-        r = exports2.storage.debug;
-      } catch (e) {
-      }
-      if (!r && typeof process !== "undefined" && "env" in process) {
-        r = process.env.DEBUG;
-      }
-      return r;
-    }
-    exports2.enable(load());
-    function localstorage() {
-      try {
-        return window.localStorage;
-      } catch (e) {
-      }
-    }
-  }
-});
-
-// node_modules/express-session/node_modules/debug/src/node.js
-var require_node5 = __commonJS({
-  "node_modules/express-session/node_modules/debug/src/node.js"(exports2, module2) {
-    var tty = require("tty");
-    var util2 = require("util");
-    exports2 = module2.exports = require_debug5();
-    exports2.init = init;
-    exports2.log = log;
-    exports2.formatArgs = formatArgs;
-    exports2.save = save;
-    exports2.load = load;
-    exports2.useColors = useColors;
-    exports2.colors = [6, 2, 3, 4, 5, 1];
-    exports2.inspectOpts = Object.keys(process.env).filter(function(key) {
-      return /^debug_/i.test(key);
-    }).reduce(function(obj, key) {
-      var prop = key.substring(6).toLowerCase().replace(/_([a-z])/g, function(_, k) {
-        return k.toUpperCase();
-      });
-      var val = process.env[key];
-      if (/^(yes|on|true|enabled)$/i.test(val)) val = true;
-      else if (/^(no|off|false|disabled)$/i.test(val)) val = false;
-      else if (val === "null") val = null;
-      else val = Number(val);
-      obj[prop] = val;
-      return obj;
-    }, {});
-    var fd = parseInt(process.env.DEBUG_FD, 10) || 2;
-    if (1 !== fd && 2 !== fd) {
-      util2.deprecate(function() {
-      }, "except for stderr(2) and stdout(1), any other usage of DEBUG_FD is deprecated. Override debug.log if you want to use a different log function (https://git.io/debug_fd)")();
-    }
-    var stream = 1 === fd ? process.stdout : 2 === fd ? process.stderr : createWritableStdioStream(fd);
-    function useColors() {
-      return "colors" in exports2.inspectOpts ? Boolean(exports2.inspectOpts.colors) : tty.isatty(fd);
-    }
-    exports2.formatters.o = function(v) {
-      this.inspectOpts.colors = this.useColors;
-      return util2.inspect(v, this.inspectOpts).split("\n").map(function(str) {
-        return str.trim();
-      }).join(" ");
-    };
-    exports2.formatters.O = function(v) {
-      this.inspectOpts.colors = this.useColors;
-      return util2.inspect(v, this.inspectOpts);
-    };
-    function formatArgs(args) {
-      var name = this.namespace;
-      var useColors2 = this.useColors;
-      if (useColors2) {
-        var c = this.color;
-        var prefix = "  \x1B[3" + c + ";1m" + name + " \x1B[0m";
-        args[0] = prefix + args[0].split("\n").join("\n" + prefix);
-        args.push("\x1B[3" + c + "m+" + exports2.humanize(this.diff) + "\x1B[0m");
-      } else {
-        args[0] = (/* @__PURE__ */ new Date()).toUTCString() + " " + name + " " + args[0];
-      }
-    }
-    function log() {
-      return stream.write(util2.format.apply(util2, arguments) + "\n");
-    }
-    function save(namespaces) {
-      if (null == namespaces) {
-        delete process.env.DEBUG;
-      } else {
-        process.env.DEBUG = namespaces;
-      }
-    }
-    function load() {
-      return process.env.DEBUG;
-    }
-    function createWritableStdioStream(fd2) {
-      var stream2;
-      var tty_wrap = process.binding("tty_wrap");
-      switch (tty_wrap.guessHandleType(fd2)) {
-        case "TTY":
-          stream2 = new tty.WriteStream(fd2);
-          stream2._type = "tty";
-          if (stream2._handle && stream2._handle.unref) {
-            stream2._handle.unref();
+      if (version2.prerelease.length && !options.includePrerelease) {
+        for (let i = 0; i < set.length; i++) {
+          debug(set[i].semver);
+          if (set[i].semver === Comparator.ANY) {
+            continue;
           }
-          break;
-        case "FILE":
-          var fs = require("fs");
-          stream2 = new fs.SyncWriteStream(fd2, { autoClose: false });
-          stream2._type = "fs";
-          break;
-        case "PIPE":
-        case "TCP":
-          var net = require("net");
-          stream2 = new net.Socket({
-            fd: fd2,
-            readable: false,
-            writable: true
-          });
-          stream2.readable = false;
-          stream2.read = null;
-          stream2._type = "pipe";
-          if (stream2._handle && stream2._handle.unref) {
-            stream2._handle.unref();
-          }
-          break;
-        default:
-          throw new Error("Implement me. Unknown stream file type!");
-      }
-      stream2.fd = fd2;
-      stream2._isStdio = true;
-      return stream2;
-    }
-    function init(debug) {
-      debug.inspectOpts = {};
-      var keys = Object.keys(exports2.inspectOpts);
-      for (var i = 0; i < keys.length; i++) {
-        debug.inspectOpts[keys[i]] = exports2.inspectOpts[keys[i]];
-      }
-    }
-    exports2.enable(load());
-  }
-});
-
-// node_modules/express-session/node_modules/debug/src/index.js
-var require_src5 = __commonJS({
-  "node_modules/express-session/node_modules/debug/src/index.js"(exports2, module2) {
-    if (typeof process !== "undefined" && process.type === "renderer") {
-      module2.exports = require_browser5();
-    } else {
-      module2.exports = require_node5();
-    }
-  }
-});
-
-// node_modules/on-headers/index.js
-var require_on_headers = __commonJS({
-  "node_modules/on-headers/index.js"(exports2, module2) {
-    "use strict";
-    module2.exports = onHeaders;
-    var http = require("http");
-    var isAppendHeaderSupported = typeof http.ServerResponse.prototype.appendHeader === "function";
-    var set1dArray = isAppendHeaderSupported ? set1dArrayWithAppend : set1dArrayWithSet;
-    function createWriteHead(prevWriteHead, listener) {
-      var fired = false;
-      return function writeHead(statusCode) {
-        var args = setWriteHeadHeaders.apply(this, arguments);
-        if (!fired) {
-          fired = true;
-          listener.call(this);
-          if (typeof args[0] === "number" && this.statusCode !== args[0]) {
-            args[0] = this.statusCode;
-            args.length = 1;
-          }
-        }
-        return prevWriteHead.apply(this, args);
-      };
-    }
-    function onHeaders(res, listener) {
-      if (!res) {
-        throw new TypeError("argument res is required");
-      }
-      if (typeof listener !== "function") {
-        throw new TypeError("argument listener must be a function");
-      }
-      res.writeHead = createWriteHead(res.writeHead, listener);
-    }
-    function setHeadersFromArray(res, headers) {
-      if (headers.length && Array.isArray(headers[0])) {
-        set2dArray(res, headers);
-      } else {
-        if (headers.length % 2 !== 0) {
-          throw new TypeError("headers array is malformed");
-        }
-        set1dArray(res, headers);
-      }
-    }
-    function setHeadersFromObject(res, headers) {
-      var keys = Object.keys(headers);
-      for (var i = 0; i < keys.length; i++) {
-        var k = keys[i];
-        if (k) res.setHeader(k, headers[k]);
-      }
-    }
-    function setWriteHeadHeaders(statusCode) {
-      var length = arguments.length;
-      var headerIndex = length > 1 && typeof arguments[1] === "string" ? 2 : 1;
-      var headers = length >= headerIndex + 1 ? arguments[headerIndex] : void 0;
-      this.statusCode = statusCode;
-      if (Array.isArray(headers)) {
-        setHeadersFromArray(this, headers);
-      } else if (headers) {
-        setHeadersFromObject(this, headers);
-      }
-      var args = new Array(Math.min(length, headerIndex));
-      for (var i = 0; i < args.length; i++) {
-        args[i] = arguments[i];
-      }
-      return args;
-    }
-    function set2dArray(res, headers) {
-      var key;
-      for (var i = 0; i < headers.length; i++) {
-        key = headers[i][0];
-        if (key) {
-          res.setHeader(key, headers[i][1]);
-        }
-      }
-    }
-    function set1dArrayWithAppend(res, headers) {
-      for (var i = 0; i < headers.length; i += 2) {
-        res.removeHeader(headers[i]);
-      }
-      var key;
-      for (var j = 0; j < headers.length; j += 2) {
-        key = headers[j];
-        if (key) {
-          res.appendHeader(key, headers[j + 1]);
-        }
-      }
-    }
-    function set1dArrayWithSet(res, headers) {
-      var key;
-      for (var i = 0; i < headers.length; i += 2) {
-        key = headers[i];
-        if (key) {
-          res.setHeader(key, headers[i + 1]);
-        }
-      }
-    }
-  }
-});
-
-// node_modules/express-session/node_modules/cookie-signature/index.js
-var require_cookie_signature2 = __commonJS({
-  "node_modules/express-session/node_modules/cookie-signature/index.js"(exports2) {
-    var crypto = require("crypto");
-    exports2.sign = function(val, secret) {
-      if ("string" !== typeof val) throw new TypeError("Cookie value must be provided as a string.");
-      if (null == secret) throw new TypeError("Secret key must be provided.");
-      return val + "." + crypto.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
-    };
-    exports2.unsign = function(val, secret) {
-      if ("string" !== typeof val) throw new TypeError("Signed cookie string must be provided.");
-      if (null == secret) throw new TypeError("Secret key must be provided.");
-      var str = val.slice(0, val.lastIndexOf(".")), mac = exports2.sign(str, secret);
-      return sha1(mac) == sha1(val) ? str : false;
-    };
-    function sha1(str) {
-      return crypto.createHash("sha1").update(str).digest("hex");
-    }
-  }
-});
-
-// node_modules/random-bytes/index.js
-var require_random_bytes = __commonJS({
-  "node_modules/random-bytes/index.js"(exports2, module2) {
-    "use strict";
-    var crypto = require("crypto");
-    var generateAttempts = crypto.randomBytes === crypto.pseudoRandomBytes ? 1 : 3;
-    module2.exports = randomBytes2;
-    module2.exports.sync = randomBytesSync;
-    function randomBytes2(size, callback) {
-      if (callback !== void 0 && typeof callback !== "function") {
-        throw new TypeError("argument callback must be a function");
-      }
-      if (!callback && !global.Promise) {
-        throw new TypeError("argument callback is required");
-      }
-      if (callback) {
-        return generateRandomBytes(size, generateAttempts, callback);
-      }
-      return new Promise(function executor(resolve, reject) {
-        generateRandomBytes(size, generateAttempts, function onRandomBytes(err, str) {
-          if (err) return reject(err);
-          resolve(str);
-        });
-      });
-    }
-    function randomBytesSync(size) {
-      var err = null;
-      for (var i = 0; i < generateAttempts; i++) {
-        try {
-          return crypto.randomBytes(size);
-        } catch (e) {
-          err = e;
-        }
-      }
-      throw err;
-    }
-    function generateRandomBytes(size, attempts, callback) {
-      crypto.randomBytes(size, function onRandomBytes(err, buf) {
-        if (!err) return callback(null, buf);
-        if (!--attempts) return callback(err);
-        setTimeout(generateRandomBytes.bind(null, size, attempts, callback), 10);
-      });
-    }
-  }
-});
-
-// node_modules/uid-safe/index.js
-var require_uid_safe = __commonJS({
-  "node_modules/uid-safe/index.js"(exports2, module2) {
-    "use strict";
-    var randomBytes2 = require_random_bytes();
-    var EQUAL_END_REGEXP = /=+$/;
-    var PLUS_GLOBAL_REGEXP = /\+/g;
-    var SLASH_GLOBAL_REGEXP = /\//g;
-    module2.exports = uid;
-    module2.exports.sync = uidSync;
-    function uid(length, callback) {
-      if (callback !== void 0 && typeof callback !== "function") {
-        throw new TypeError("argument callback must be a function");
-      }
-      if (!callback && !global.Promise) {
-        throw new TypeError("argument callback is required");
-      }
-      if (callback) {
-        return generateUid(length, callback);
-      }
-      return new Promise(function executor(resolve, reject) {
-        generateUid(length, function onUid(err, str) {
-          if (err) return reject(err);
-          resolve(str);
-        });
-      });
-    }
-    function uidSync(length) {
-      return toString(randomBytes2.sync(length));
-    }
-    function generateUid(length, callback) {
-      randomBytes2(length, function(err, buf) {
-        if (err) return callback(err);
-        callback(null, toString(buf));
-      });
-    }
-    function toString(buf) {
-      return buf.toString("base64").replace(EQUAL_END_REGEXP, "").replace(PLUS_GLOBAL_REGEXP, "-").replace(SLASH_GLOBAL_REGEXP, "_");
-    }
-  }
-});
-
-// node_modules/express-session/session/cookie.js
-var require_cookie3 = __commonJS({
-  "node_modules/express-session/session/cookie.js"(exports2, module2) {
-    "use strict";
-    var cookie = require_cookie2();
-    var deprecate = require_depd()("express-session");
-    var Cookie = module2.exports = function Cookie2(options) {
-      this.path = "/";
-      this.maxAge = null;
-      this.httpOnly = true;
-      if (options) {
-        if (typeof options !== "object") {
-          throw new TypeError("argument options must be a object");
-        }
-        for (var key in options) {
-          if (key !== "data") {
-            this[key] = options[key];
-          }
-        }
-      }
-      if (this.originalMaxAge === void 0 || this.originalMaxAge === null) {
-        this.originalMaxAge = this.maxAge;
-      }
-    };
-    Cookie.prototype = {
-      /**
-       * Set expires `date`.
-       *
-       * @param {Date} date
-       * @api public
-       */
-      set expires(date2) {
-        this._expires = date2;
-        this.originalMaxAge = this.maxAge;
-      },
-      /**
-       * Get expires `date`.
-       *
-       * @return {Date}
-       * @api public
-       */
-      get expires() {
-        return this._expires;
-      },
-      /**
-       * Set expires via max-age in `ms`.
-       *
-       * @param {Number} ms
-       * @api public
-       */
-      set maxAge(ms) {
-        if (ms && typeof ms !== "number" && !(ms instanceof Date)) {
-          throw new TypeError("maxAge must be a number or Date");
-        }
-        if (ms instanceof Date) {
-          deprecate("maxAge as Date; pass number of milliseconds instead");
-        }
-        this.expires = typeof ms === "number" ? new Date(Date.now() + ms) : ms;
-      },
-      /**
-       * Get expires max-age in `ms`.
-       *
-       * @return {Number}
-       * @api public
-       */
-      get maxAge() {
-        return this.expires instanceof Date ? this.expires.valueOf() - Date.now() : this.expires;
-      },
-      /**
-       * Return cookie data object.
-       *
-       * @return {Object}
-       * @api private
-       */
-      get data() {
-        return {
-          originalMaxAge: this.originalMaxAge,
-          partitioned: this.partitioned,
-          priority: this.priority,
-          expires: this._expires,
-          secure: this.secure,
-          httpOnly: this.httpOnly,
-          domain: this.domain,
-          path: this.path,
-          sameSite: this.sameSite
-        };
-      },
-      /**
-       * Return a serialized cookie string.
-       *
-       * @return {String}
-       * @api public
-       */
-      serialize: function(name, val) {
-        return cookie.serialize(name, val, this.data);
-      },
-      /**
-       * Return JSON representation of this cookie.
-       *
-       * @return {Object}
-       * @api private
-       */
-      toJSON: function() {
-        return this.data;
-      }
-    };
-  }
-});
-
-// node_modules/express-session/session/session.js
-var require_session2 = __commonJS({
-  "node_modules/express-session/session/session.js"(exports2, module2) {
-    "use strict";
-    module2.exports = Session;
-    function Session(req, data) {
-      Object.defineProperty(this, "req", { value: req });
-      Object.defineProperty(this, "id", { value: req.sessionID });
-      if (typeof data === "object" && data !== null) {
-        for (var prop in data) {
-          if (!(prop in this)) {
-            this[prop] = data[prop];
-          }
-        }
-      }
-    }
-    defineMethod(Session.prototype, "touch", function touch() {
-      return this.resetMaxAge();
-    });
-    defineMethod(Session.prototype, "resetMaxAge", function resetMaxAge() {
-      this.cookie.maxAge = this.cookie.originalMaxAge;
-      return this;
-    });
-    defineMethod(Session.prototype, "save", function save(fn) {
-      this.req.sessionStore.set(this.id, this, fn || function() {
-      });
-      return this;
-    });
-    defineMethod(Session.prototype, "reload", function reload(fn) {
-      var req = this.req;
-      var store = this.req.sessionStore;
-      store.get(this.id, function(err, sess) {
-        if (err) return fn(err);
-        if (!sess) return fn(new Error("failed to load session"));
-        store.createSession(req, sess);
-        fn();
-      });
-      return this;
-    });
-    defineMethod(Session.prototype, "destroy", function destroy(fn) {
-      delete this.req.session;
-      this.req.sessionStore.destroy(this.id, fn);
-      return this;
-    });
-    defineMethod(Session.prototype, "regenerate", function regenerate(fn) {
-      this.req.sessionStore.regenerate(this.req, fn);
-      return this;
-    });
-    function defineMethod(obj, name, fn) {
-      Object.defineProperty(obj, name, {
-        configurable: true,
-        enumerable: false,
-        value: fn,
-        writable: true
-      });
-    }
-  }
-});
-
-// node_modules/express-session/session/store.js
-var require_store = __commonJS({
-  "node_modules/express-session/session/store.js"(exports2, module2) {
-    "use strict";
-    var Cookie = require_cookie3();
-    var EventEmitter = require("events").EventEmitter;
-    var Session = require_session2();
-    var util2 = require("util");
-    module2.exports = Store;
-    function Store() {
-      EventEmitter.call(this);
-    }
-    util2.inherits(Store, EventEmitter);
-    Store.prototype.regenerate = function(req, fn) {
-      var self = this;
-      this.destroy(req.sessionID, function(err) {
-        self.generate(req);
-        fn(err);
-      });
-    };
-    Store.prototype.load = function(sid, fn) {
-      var self = this;
-      this.get(sid, function(err, sess) {
-        if (err) return fn(err);
-        if (!sess) return fn();
-        var req = { sessionID: sid, sessionStore: self };
-        fn(null, self.createSession(req, sess));
-      });
-    };
-    Store.prototype.createSession = function(req, sess) {
-      var expires = sess.cookie.expires;
-      var originalMaxAge = sess.cookie.originalMaxAge;
-      sess.cookie = new Cookie(sess.cookie);
-      if (typeof expires === "string") {
-        sess.cookie.expires = new Date(expires);
-      }
-      sess.cookie.originalMaxAge = originalMaxAge;
-      req.session = new Session(req, sess);
-      return req.session;
-    };
-  }
-});
-
-// node_modules/express-session/session/memory.js
-var require_memory = __commonJS({
-  "node_modules/express-session/session/memory.js"(exports2, module2) {
-    "use strict";
-    var Store = require_store();
-    var util2 = require("util");
-    var defer = typeof setImmediate === "function" ? setImmediate : function(fn) {
-      process.nextTick(fn.bind.apply(fn, arguments));
-    };
-    module2.exports = MemoryStore;
-    function MemoryStore() {
-      Store.call(this);
-      this.sessions = /* @__PURE__ */ Object.create(null);
-    }
-    util2.inherits(MemoryStore, Store);
-    MemoryStore.prototype.all = function all(callback) {
-      var sessionIds = Object.keys(this.sessions);
-      var sessions = /* @__PURE__ */ Object.create(null);
-      for (var i = 0; i < sessionIds.length; i++) {
-        var sessionId = sessionIds[i];
-        var session2 = getSession.call(this, sessionId);
-        if (session2) {
-          sessions[sessionId] = session2;
-        }
-      }
-      callback && defer(callback, null, sessions);
-    };
-    MemoryStore.prototype.clear = function clear(callback) {
-      this.sessions = /* @__PURE__ */ Object.create(null);
-      callback && defer(callback);
-    };
-    MemoryStore.prototype.destroy = function destroy(sessionId, callback) {
-      delete this.sessions[sessionId];
-      callback && defer(callback);
-    };
-    MemoryStore.prototype.get = function get(sessionId, callback) {
-      defer(callback, null, getSession.call(this, sessionId));
-    };
-    MemoryStore.prototype.set = function set(sessionId, session2, callback) {
-      this.sessions[sessionId] = JSON.stringify(session2);
-      callback && defer(callback);
-    };
-    MemoryStore.prototype.length = function length(callback) {
-      this.all(function(err, sessions) {
-        if (err) return callback(err);
-        callback(null, Object.keys(sessions).length);
-      });
-    };
-    MemoryStore.prototype.touch = function touch(sessionId, session2, callback) {
-      var currentSession = getSession.call(this, sessionId);
-      if (currentSession) {
-        currentSession.cookie = session2.cookie;
-        this.sessions[sessionId] = JSON.stringify(currentSession);
-      }
-      callback && defer(callback);
-    };
-    function getSession(sessionId) {
-      var sess = this.sessions[sessionId];
-      if (!sess) {
-        return;
-      }
-      sess = JSON.parse(sess);
-      if (sess.cookie) {
-        var expires = typeof sess.cookie.expires === "string" ? new Date(sess.cookie.expires) : sess.cookie.expires;
-        if (expires && expires <= Date.now()) {
-          delete this.sessions[sessionId];
-          return;
-        }
-      }
-      return sess;
-    }
-  }
-});
-
-// node_modules/express-session/index.js
-var require_express_session = __commonJS({
-  "node_modules/express-session/index.js"(exports2, module2) {
-    "use strict";
-    var Buffer2 = require_safe_buffer().Buffer;
-    var cookie = require_cookie2();
-    var crypto = require("crypto");
-    var debug = require_src5()("express-session");
-    var deprecate = require_depd()("express-session");
-    var onHeaders = require_on_headers();
-    var parseUrl = require_parseurl();
-    var signature = require_cookie_signature2();
-    var uid = require_uid_safe().sync;
-    var Cookie = require_cookie3();
-    var MemoryStore = require_memory();
-    var Session = require_session2();
-    var Store = require_store();
-    var env = "production";
-    exports2 = module2.exports = session2;
-    exports2.Store = Store;
-    exports2.Cookie = Cookie;
-    exports2.Session = Session;
-    exports2.MemoryStore = MemoryStore;
-    var warning = "Warning: connect.session() MemoryStore is not\ndesigned for a production environment, as it will leak\nmemory, and will not scale past a single process.";
-    var defer = typeof setImmediate === "function" ? setImmediate : function(fn) {
-      process.nextTick(fn.bind.apply(fn, arguments));
-    };
-    function session2(options) {
-      var opts = options || {};
-      var cookieOptions = opts.cookie || {};
-      var generateId = opts.genid || generateSessionId;
-      var name = opts.name || opts.key || "connect.sid";
-      var store = opts.store || new MemoryStore();
-      var trustProxy = opts.proxy;
-      var resaveSession = opts.resave;
-      var rollingSessions = Boolean(opts.rolling);
-      var saveUninitializedSession = opts.saveUninitialized;
-      var secret = opts.secret;
-      if (typeof generateId !== "function") {
-        throw new TypeError("genid option must be a function");
-      }
-      if (resaveSession === void 0) {
-        deprecate("undefined resave option; provide resave option");
-        resaveSession = true;
-      }
-      if (saveUninitializedSession === void 0) {
-        deprecate("undefined saveUninitialized option; provide saveUninitialized option");
-        saveUninitializedSession = true;
-      }
-      if (opts.unset && opts.unset !== "destroy" && opts.unset !== "keep") {
-        throw new TypeError('unset option must be "destroy" or "keep"');
-      }
-      var unsetDestroy = opts.unset === "destroy";
-      if (Array.isArray(secret) && secret.length === 0) {
-        throw new TypeError("secret option array must contain one or more strings");
-      }
-      if (secret && !Array.isArray(secret)) {
-        secret = [secret];
-      }
-      if (!secret) {
-        deprecate("req.secret; provide secret option");
-      }
-      if (env === "production" && store instanceof MemoryStore) {
-        console.warn(warning);
-      }
-      store.generate = function(req) {
-        req.sessionID = generateId(req);
-        req.session = new Session(req);
-        req.session.cookie = new Cookie(cookieOptions);
-        if (cookieOptions.secure === "auto") {
-          req.session.cookie.secure = issecure(req, trustProxy);
-        }
-      };
-      var storeImplementsTouch = typeof store.touch === "function";
-      var storeReady = true;
-      store.on("disconnect", function ondisconnect() {
-        storeReady = false;
-      });
-      store.on("connect", function onconnect() {
-        storeReady = true;
-      });
-      return function session3(req, res, next) {
-        if (req.session) {
-          next();
-          return;
-        }
-        if (!storeReady) {
-          debug("store is disconnected");
-          next();
-          return;
-        }
-        var originalPath = parseUrl.original(req).pathname || "/";
-        if (originalPath.indexOf(cookieOptions.path || "/") !== 0) {
-          debug("pathname mismatch");
-          next();
-          return;
-        }
-        if (!secret && !req.secret) {
-          next(new Error("secret option required for sessions"));
-          return;
-        }
-        var secrets = secret || [req.secret];
-        var originalHash;
-        var originalId;
-        var savedHash;
-        var touched = false;
-        req.sessionStore = store;
-        var cookieId = req.sessionID = getcookie(req, name, secrets);
-        onHeaders(res, function() {
-          if (!req.session) {
-            debug("no session");
-            return;
-          }
-          if (!shouldSetCookie(req)) {
-            return;
-          }
-          if (req.session.cookie.secure && !issecure(req, trustProxy)) {
-            debug("not secured");
-            return;
-          }
-          if (!touched) {
-            req.session.touch();
-            touched = true;
-          }
-          try {
-            setcookie(res, name, req.sessionID, secrets[0], req.session.cookie.data);
-          } catch (err) {
-            defer(next, err);
-          }
-        });
-        var _end = res.end;
-        var _write = res.write;
-        var ended = false;
-        res.end = function end(chunk, encoding) {
-          if (ended) {
-            return false;
-          }
-          ended = true;
-          var ret;
-          var sync = true;
-          function writeend() {
-            if (sync) {
-              ret = _end.call(res, chunk, encoding);
-              sync = false;
-              return;
+          if (set[i].semver.prerelease.length > 0) {
+            const allowed = set[i].semver;
+            if (allowed.major === version2.major && allowed.minor === version2.minor && allowed.patch === version2.patch) {
+              return true;
             }
-            _end.call(res);
-          }
-          function writetop() {
-            if (!sync) {
-              return ret;
-            }
-            if (!res._header) {
-              res._implicitHeader();
-            }
-            if (chunk == null) {
-              ret = true;
-              return ret;
-            }
-            var contentLength = Number(res.getHeader("Content-Length"));
-            if (!isNaN(contentLength) && contentLength > 0) {
-              chunk = !Buffer2.isBuffer(chunk) ? Buffer2.from(chunk, encoding) : chunk;
-              encoding = void 0;
-              if (chunk.length !== 0) {
-                debug("split response");
-                ret = _write.call(res, chunk.slice(0, chunk.length - 1));
-                chunk = chunk.slice(chunk.length - 1, chunk.length);
-                return ret;
-              }
-            }
-            ret = _write.call(res, chunk, encoding);
-            sync = false;
-            return ret;
-          }
-          if (shouldDestroy(req)) {
-            debug("destroying");
-            store.destroy(req.sessionID, function ondestroy(err) {
-              if (err) {
-                defer(next, err);
-              }
-              debug("destroyed");
-              writeend();
-            });
-            return writetop();
-          }
-          if (!req.session) {
-            debug("no session");
-            return _end.call(res, chunk, encoding);
-          }
-          if (!touched) {
-            req.session.touch();
-            touched = true;
-          }
-          if (shouldSave(req)) {
-            req.session.save(function onsave(err) {
-              if (err) {
-                defer(next, err);
-              }
-              writeend();
-            });
-            return writetop();
-          } else if (storeImplementsTouch && shouldTouch(req)) {
-            debug("touching");
-            store.touch(req.sessionID, req.session, function ontouch(err) {
-              if (err) {
-                defer(next, err);
-              }
-              debug("touched");
-              writeend();
-            });
-            return writetop();
-          }
-          return _end.call(res, chunk, encoding);
-        };
-        function generate() {
-          store.generate(req);
-          originalId = req.sessionID;
-          originalHash = hash(req.session);
-          wrapmethods(req.session);
-        }
-        function inflate(req2, sess) {
-          store.createSession(req2, sess);
-          originalId = req2.sessionID;
-          originalHash = hash(sess);
-          if (!resaveSession) {
-            savedHash = originalHash;
-          }
-          wrapmethods(req2.session);
-        }
-        function rewrapmethods(sess, callback) {
-          return function() {
-            if (req.session !== sess) {
-              wrapmethods(req.session);
-            }
-            callback.apply(this, arguments);
-          };
-        }
-        function wrapmethods(sess) {
-          var _reload = sess.reload;
-          var _save = sess.save;
-          function reload(callback) {
-            debug("reloading %s", this.id);
-            _reload.call(this, rewrapmethods(this, callback));
-          }
-          function save() {
-            debug("saving %s", this.id);
-            savedHash = hash(this);
-            _save.apply(this, arguments);
-          }
-          Object.defineProperty(sess, "reload", {
-            configurable: true,
-            enumerable: false,
-            value: reload,
-            writable: true
-          });
-          Object.defineProperty(sess, "save", {
-            configurable: true,
-            enumerable: false,
-            value: save,
-            writable: true
-          });
-        }
-        function isModified(sess) {
-          return originalId !== sess.id || originalHash !== hash(sess);
-        }
-        function isSaved(sess) {
-          return originalId === sess.id && savedHash === hash(sess);
-        }
-        function shouldDestroy(req2) {
-          return req2.sessionID && unsetDestroy && req2.session == null;
-        }
-        function shouldSave(req2) {
-          if (typeof req2.sessionID !== "string") {
-            debug("session ignored because of bogus req.sessionID %o", req2.sessionID);
-            return false;
-          }
-          return !saveUninitializedSession && !savedHash && cookieId !== req2.sessionID ? isModified(req2.session) : !isSaved(req2.session);
-        }
-        function shouldTouch(req2) {
-          if (typeof req2.sessionID !== "string") {
-            debug("session ignored because of bogus req.sessionID %o", req2.sessionID);
-            return false;
-          }
-          return cookieId === req2.sessionID && !shouldSave(req2);
-        }
-        function shouldSetCookie(req2) {
-          if (typeof req2.sessionID !== "string") {
-            return false;
-          }
-          return cookieId !== req2.sessionID ? saveUninitializedSession || isModified(req2.session) : rollingSessions || req2.session.cookie.expires != null && isModified(req2.session);
-        }
-        if (!req.sessionID) {
-          debug("no SID sent, generating session");
-          generate();
-          next();
-          return;
-        }
-        debug("fetching %s", req.sessionID);
-        store.get(req.sessionID, function(err, sess) {
-          if (err && err.code !== "ENOENT") {
-            debug("error %j", err);
-            next(err);
-            return;
-          }
-          try {
-            if (err || !sess) {
-              debug("no session found");
-              generate();
-            } else {
-              debug("session found");
-              inflate(req, sess);
-            }
-          } catch (e) {
-            next(e);
-            return;
-          }
-          next();
-        });
-      };
-    }
-    function generateSessionId(sess) {
-      return uid(24);
-    }
-    function getcookie(req, name, secrets) {
-      var header = req.headers.cookie;
-      var raw;
-      var val;
-      if (header) {
-        var cookies = cookie.parse(header);
-        raw = cookies[name];
-        if (raw) {
-          if (raw.substr(0, 2) === "s:") {
-            val = unsigncookie(raw.slice(2), secrets);
-            if (val === false) {
-              debug("cookie signature invalid");
-              val = void 0;
-            }
-          } else {
-            debug("cookie unsigned");
           }
         }
-      }
-      if (!val && req.signedCookies) {
-        val = req.signedCookies[name];
-        if (val) {
-          deprecate("cookie should be available in req.headers.cookie");
-        }
-      }
-      if (!val && req.cookies) {
-        raw = req.cookies[name];
-        if (raw) {
-          if (raw.substr(0, 2) === "s:") {
-            val = unsigncookie(raw.slice(2), secrets);
-            if (val) {
-              deprecate("cookie should be available in req.headers.cookie");
-            }
-            if (val === false) {
-              debug("cookie signature invalid");
-              val = void 0;
-            }
-          } else {
-            debug("cookie unsigned");
-          }
-        }
-      }
-      return val;
-    }
-    function hash(sess) {
-      var str = JSON.stringify(sess, function(key, val) {
-        if (this === sess && key === "cookie") {
-          return;
-        }
-        return val;
-      });
-      return crypto.createHash("sha1").update(str, "utf8").digest("hex");
-    }
-    function issecure(req, trustProxy) {
-      if (req.connection && req.connection.encrypted) {
-        return true;
-      }
-      if (trustProxy === false) {
         return false;
       }
-      if (trustProxy !== true) {
-        return req.secure === true;
+      return true;
+    };
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/classes/comparator.js
+var require_comparator = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/classes/comparator.js"(exports2, module2) {
+    "use strict";
+    var ANY = Symbol("SemVer ANY");
+    var Comparator = class _Comparator {
+      static get ANY() {
+        return ANY;
       }
-      var header = req.headers["x-forwarded-proto"] || "";
-      var index = header.indexOf(",");
-      var proto = index !== -1 ? header.substr(0, index).toLowerCase().trim() : header.toLowerCase().trim();
-      return proto === "https";
-    }
-    function setcookie(res, name, val, secret, options) {
-      var signed = "s:" + signature.sign(val, secret);
-      var data = cookie.serialize(name, signed, options);
-      debug("set-cookie %s", data);
-      var prev = res.getHeader("Set-Cookie") || [];
-      var header = Array.isArray(prev) ? prev.concat(data) : [prev, data];
-      res.setHeader("Set-Cookie", header);
-    }
-    function unsigncookie(val, secrets) {
-      for (var i = 0; i < secrets.length; i++) {
-        var result = signature.unsign(val, secrets[i]);
-        if (result !== false) {
-          return result;
+      constructor(comp, options) {
+        options = parseOptions(options);
+        if (comp instanceof _Comparator) {
+          if (comp.loose === !!options.loose) {
+            return comp;
+          } else {
+            comp = comp.value;
+          }
+        }
+        comp = comp.trim().split(/\s+/).join(" ");
+        debug("comparator", comp, options);
+        this.options = options;
+        this.loose = !!options.loose;
+        this.parse(comp);
+        if (this.semver === ANY) {
+          this.value = "";
+        } else {
+          this.value = this.operator + this.semver.version;
+        }
+        debug("comp", this);
+      }
+      parse(comp) {
+        const r = this.options.loose ? re[t.COMPARATORLOOSE] : re[t.COMPARATOR];
+        const m = comp.match(r);
+        if (!m) {
+          throw new TypeError(`Invalid comparator: ${comp}`);
+        }
+        this.operator = m[1] !== void 0 ? m[1] : "";
+        if (this.operator === "=") {
+          this.operator = "";
+        }
+        if (!m[2]) {
+          this.semver = ANY;
+        } else {
+          this.semver = new SemVer(m[2], this.options.loose);
         }
       }
-      return false;
+      toString() {
+        return this.value;
+      }
+      test(version2) {
+        debug("Comparator.test", version2, this.options.loose);
+        if (this.semver === ANY || version2 === ANY) {
+          return true;
+        }
+        if (typeof version2 === "string") {
+          try {
+            version2 = new SemVer(version2, this.options);
+          } catch (er) {
+            return false;
+          }
+        }
+        return cmp(version2, this.operator, this.semver, this.options);
+      }
+      intersects(comp, options) {
+        if (!(comp instanceof _Comparator)) {
+          throw new TypeError("a Comparator is required");
+        }
+        if (this.operator === "") {
+          if (this.value === "") {
+            return true;
+          }
+          return new Range(comp.value, options).test(this.value);
+        } else if (comp.operator === "") {
+          if (comp.value === "") {
+            return true;
+          }
+          return new Range(this.value, options).test(comp.semver);
+        }
+        options = parseOptions(options);
+        if (options.includePrerelease && (this.value === "<0.0.0-0" || comp.value === "<0.0.0-0")) {
+          return false;
+        }
+        if (!options.includePrerelease && (this.value.startsWith("<0.0.0") || comp.value.startsWith("<0.0.0"))) {
+          return false;
+        }
+        if (this.operator.startsWith(">") && comp.operator.startsWith(">")) {
+          return true;
+        }
+        if (this.operator.startsWith("<") && comp.operator.startsWith("<")) {
+          return true;
+        }
+        if (this.semver.version === comp.semver.version && this.operator.includes("=") && comp.operator.includes("=")) {
+          return true;
+        }
+        if (cmp(this.semver, "<", comp.semver, options) && this.operator.startsWith(">") && comp.operator.startsWith("<")) {
+          return true;
+        }
+        if (cmp(this.semver, ">", comp.semver, options) && this.operator.startsWith("<") && comp.operator.startsWith(">")) {
+          return true;
+        }
+        return false;
+      }
+    };
+    module2.exports = Comparator;
+    var parseOptions = require_parse_options();
+    var { safeRe: re, t } = require_re();
+    var cmp = require_cmp();
+    var debug = require_debug5();
+    var SemVer = require_semver();
+    var Range = require_range2();
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/functions/satisfies.js
+var require_satisfies = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/functions/satisfies.js"(exports2, module2) {
+    "use strict";
+    var Range = require_range2();
+    var satisfies = (version2, range, options) => {
+      try {
+        range = new Range(range, options);
+      } catch (er) {
+        return false;
+      }
+      return range.test(version2);
+    };
+    module2.exports = satisfies;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/ranges/to-comparators.js
+var require_to_comparators = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/ranges/to-comparators.js"(exports2, module2) {
+    "use strict";
+    var Range = require_range2();
+    var toComparators = (range, options) => new Range(range, options).set.map((comp) => comp.map((c) => c.value).join(" ").trim().split(" "));
+    module2.exports = toComparators;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/ranges/max-satisfying.js
+var require_max_satisfying = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/ranges/max-satisfying.js"(exports2, module2) {
+    "use strict";
+    var SemVer = require_semver();
+    var Range = require_range2();
+    var maxSatisfying = (versions, range, options) => {
+      let max = null;
+      let maxSV = null;
+      let rangeObj = null;
+      try {
+        rangeObj = new Range(range, options);
+      } catch (er) {
+        return null;
+      }
+      versions.forEach((v) => {
+        if (rangeObj.test(v)) {
+          if (!max || maxSV.compare(v) === -1) {
+            max = v;
+            maxSV = new SemVer(max, options);
+          }
+        }
+      });
+      return max;
+    };
+    module2.exports = maxSatisfying;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/ranges/min-satisfying.js
+var require_min_satisfying = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/ranges/min-satisfying.js"(exports2, module2) {
+    "use strict";
+    var SemVer = require_semver();
+    var Range = require_range2();
+    var minSatisfying = (versions, range, options) => {
+      let min = null;
+      let minSV = null;
+      let rangeObj = null;
+      try {
+        rangeObj = new Range(range, options);
+      } catch (er) {
+        return null;
+      }
+      versions.forEach((v) => {
+        if (rangeObj.test(v)) {
+          if (!min || minSV.compare(v) === 1) {
+            min = v;
+            minSV = new SemVer(min, options);
+          }
+        }
+      });
+      return min;
+    };
+    module2.exports = minSatisfying;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/ranges/min-version.js
+var require_min_version = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/ranges/min-version.js"(exports2, module2) {
+    "use strict";
+    var SemVer = require_semver();
+    var Range = require_range2();
+    var gt2 = require_gt();
+    var minVersion = (range, loose) => {
+      range = new Range(range, loose);
+      let minver = new SemVer("0.0.0");
+      if (range.test(minver)) {
+        return minver;
+      }
+      minver = new SemVer("0.0.0-0");
+      if (range.test(minver)) {
+        return minver;
+      }
+      minver = null;
+      for (let i = 0; i < range.set.length; ++i) {
+        const comparators = range.set[i];
+        let setMin = null;
+        comparators.forEach((comparator) => {
+          const compver = new SemVer(comparator.semver.version);
+          switch (comparator.operator) {
+            case ">":
+              if (compver.prerelease.length === 0) {
+                compver.patch++;
+              } else {
+                compver.prerelease.push(0);
+              }
+              compver.raw = compver.format();
+            /* fallthrough */
+            case "":
+            case ">=":
+              if (!setMin || gt2(compver, setMin)) {
+                setMin = compver;
+              }
+              break;
+            case "<":
+            case "<=":
+              break;
+            /* istanbul ignore next */
+            default:
+              throw new Error(`Unexpected operation: ${comparator.operator}`);
+          }
+        });
+        if (setMin && (!minver || gt2(minver, setMin))) {
+          minver = setMin;
+        }
+      }
+      if (minver && range.test(minver)) {
+        return minver;
+      }
+      return null;
+    };
+    module2.exports = minVersion;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/ranges/valid.js
+var require_valid2 = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/ranges/valid.js"(exports2, module2) {
+    "use strict";
+    var Range = require_range2();
+    var validRange = (range, options) => {
+      try {
+        return new Range(range, options).range || "*";
+      } catch (er) {
+        return null;
+      }
+    };
+    module2.exports = validRange;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/ranges/outside.js
+var require_outside = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/ranges/outside.js"(exports2, module2) {
+    "use strict";
+    var SemVer = require_semver();
+    var Comparator = require_comparator();
+    var { ANY } = Comparator;
+    var Range = require_range2();
+    var satisfies = require_satisfies();
+    var gt2 = require_gt();
+    var lt2 = require_lt();
+    var lte2 = require_lte();
+    var gte2 = require_gte();
+    var outside = (version2, range, hilo, options) => {
+      version2 = new SemVer(version2, options);
+      range = new Range(range, options);
+      let gtfn, ltefn, ltfn, comp, ecomp;
+      switch (hilo) {
+        case ">":
+          gtfn = gt2;
+          ltefn = lte2;
+          ltfn = lt2;
+          comp = ">";
+          ecomp = ">=";
+          break;
+        case "<":
+          gtfn = lt2;
+          ltefn = gte2;
+          ltfn = gt2;
+          comp = "<";
+          ecomp = "<=";
+          break;
+        default:
+          throw new TypeError('Must provide a hilo val of "<" or ">"');
+      }
+      if (satisfies(version2, range, options)) {
+        return false;
+      }
+      for (let i = 0; i < range.set.length; ++i) {
+        const comparators = range.set[i];
+        let high = null;
+        let low = null;
+        comparators.forEach((comparator) => {
+          if (comparator.semver === ANY) {
+            comparator = new Comparator(">=0.0.0");
+          }
+          high = high || comparator;
+          low = low || comparator;
+          if (gtfn(comparator.semver, high.semver, options)) {
+            high = comparator;
+          } else if (ltfn(comparator.semver, low.semver, options)) {
+            low = comparator;
+          }
+        });
+        if (high.operator === comp || high.operator === ecomp) {
+          return false;
+        }
+        if ((!low.operator || low.operator === comp) && ltefn(version2, low.semver)) {
+          return false;
+        } else if (low.operator === ecomp && ltfn(version2, low.semver)) {
+          return false;
+        }
+      }
+      return true;
+    };
+    module2.exports = outside;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/ranges/gtr.js
+var require_gtr = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/ranges/gtr.js"(exports2, module2) {
+    "use strict";
+    var outside = require_outside();
+    var gtr = (version2, range, options) => outside(version2, range, ">", options);
+    module2.exports = gtr;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/ranges/ltr.js
+var require_ltr = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/ranges/ltr.js"(exports2, module2) {
+    "use strict";
+    var outside = require_outside();
+    var ltr = (version2, range, options) => outside(version2, range, "<", options);
+    module2.exports = ltr;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/ranges/intersects.js
+var require_intersects = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/ranges/intersects.js"(exports2, module2) {
+    "use strict";
+    var Range = require_range2();
+    var intersects = (r1, r2, options) => {
+      r1 = new Range(r1, options);
+      r2 = new Range(r2, options);
+      return r1.intersects(r2, options);
+    };
+    module2.exports = intersects;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/ranges/simplify.js
+var require_simplify = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/ranges/simplify.js"(exports2, module2) {
+    "use strict";
+    var satisfies = require_satisfies();
+    var compare = require_compare();
+    module2.exports = (versions, range, options) => {
+      const set = [];
+      let first = null;
+      let prev = null;
+      const v = versions.sort((a, b) => compare(a, b, options));
+      for (const version2 of v) {
+        const included = satisfies(version2, range, options);
+        if (included) {
+          prev = version2;
+          if (!first) {
+            first = version2;
+          }
+        } else {
+          if (prev) {
+            set.push([first, prev]);
+          }
+          prev = null;
+          first = null;
+        }
+      }
+      if (first) {
+        set.push([first, null]);
+      }
+      const ranges = [];
+      for (const [min, max] of set) {
+        if (min === max) {
+          ranges.push(min);
+        } else if (!max && min === v[0]) {
+          ranges.push("*");
+        } else if (!max) {
+          ranges.push(`>=${min}`);
+        } else if (min === v[0]) {
+          ranges.push(`<=${max}`);
+        } else {
+          ranges.push(`${min} - ${max}`);
+        }
+      }
+      const simplified = ranges.join(" || ");
+      const original = typeof range.raw === "string" ? range.raw : String(range);
+      return simplified.length < original.length ? simplified : range;
+    };
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/ranges/subset.js
+var require_subset = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/ranges/subset.js"(exports2, module2) {
+    "use strict";
+    var Range = require_range2();
+    var Comparator = require_comparator();
+    var { ANY } = Comparator;
+    var satisfies = require_satisfies();
+    var compare = require_compare();
+    var subset = (sub, dom, options = {}) => {
+      if (sub === dom) {
+        return true;
+      }
+      sub = new Range(sub, options);
+      dom = new Range(dom, options);
+      let sawNonNull = false;
+      OUTER: for (const simpleSub of sub.set) {
+        for (const simpleDom of dom.set) {
+          const isSub = simpleSubset(simpleSub, simpleDom, options);
+          sawNonNull = sawNonNull || isSub !== null;
+          if (isSub) {
+            continue OUTER;
+          }
+        }
+        if (sawNonNull) {
+          return false;
+        }
+      }
+      return true;
+    };
+    var minimumVersionWithPreRelease = [new Comparator(">=0.0.0-0")];
+    var minimumVersion = [new Comparator(">=0.0.0")];
+    var simpleSubset = (sub, dom, options) => {
+      if (sub === dom) {
+        return true;
+      }
+      if (sub.length === 1 && sub[0].semver === ANY) {
+        if (dom.length === 1 && dom[0].semver === ANY) {
+          return true;
+        } else if (options.includePrerelease) {
+          sub = minimumVersionWithPreRelease;
+        } else {
+          sub = minimumVersion;
+        }
+      }
+      if (dom.length === 1 && dom[0].semver === ANY) {
+        if (options.includePrerelease) {
+          return true;
+        } else {
+          dom = minimumVersion;
+        }
+      }
+      const eqSet = /* @__PURE__ */ new Set();
+      let gt2, lt2;
+      for (const c of sub) {
+        if (c.operator === ">" || c.operator === ">=") {
+          gt2 = higherGT(gt2, c, options);
+        } else if (c.operator === "<" || c.operator === "<=") {
+          lt2 = lowerLT(lt2, c, options);
+        } else {
+          eqSet.add(c.semver);
+        }
+      }
+      if (eqSet.size > 1) {
+        return null;
+      }
+      let gtltComp;
+      if (gt2 && lt2) {
+        gtltComp = compare(gt2.semver, lt2.semver, options);
+        if (gtltComp > 0) {
+          return null;
+        } else if (gtltComp === 0 && (gt2.operator !== ">=" || lt2.operator !== "<=")) {
+          return null;
+        }
+      }
+      for (const eq2 of eqSet) {
+        if (gt2 && !satisfies(eq2, String(gt2), options)) {
+          return null;
+        }
+        if (lt2 && !satisfies(eq2, String(lt2), options)) {
+          return null;
+        }
+        for (const c of dom) {
+          if (!satisfies(eq2, String(c), options)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      let higher, lower;
+      let hasDomLT, hasDomGT;
+      let needDomLTPre = lt2 && !options.includePrerelease && lt2.semver.prerelease.length ? lt2.semver : false;
+      let needDomGTPre = gt2 && !options.includePrerelease && gt2.semver.prerelease.length ? gt2.semver : false;
+      if (needDomLTPre && needDomLTPre.prerelease.length === 1 && lt2.operator === "<" && needDomLTPre.prerelease[0] === 0) {
+        needDomLTPre = false;
+      }
+      for (const c of dom) {
+        hasDomGT = hasDomGT || c.operator === ">" || c.operator === ">=";
+        hasDomLT = hasDomLT || c.operator === "<" || c.operator === "<=";
+        if (gt2) {
+          if (needDomGTPre) {
+            if (c.semver.prerelease && c.semver.prerelease.length && c.semver.major === needDomGTPre.major && c.semver.minor === needDomGTPre.minor && c.semver.patch === needDomGTPre.patch) {
+              needDomGTPre = false;
+            }
+          }
+          if (c.operator === ">" || c.operator === ">=") {
+            higher = higherGT(gt2, c, options);
+            if (higher === c && higher !== gt2) {
+              return false;
+            }
+          } else if (gt2.operator === ">=" && !satisfies(gt2.semver, String(c), options)) {
+            return false;
+          }
+        }
+        if (lt2) {
+          if (needDomLTPre) {
+            if (c.semver.prerelease && c.semver.prerelease.length && c.semver.major === needDomLTPre.major && c.semver.minor === needDomLTPre.minor && c.semver.patch === needDomLTPre.patch) {
+              needDomLTPre = false;
+            }
+          }
+          if (c.operator === "<" || c.operator === "<=") {
+            lower = lowerLT(lt2, c, options);
+            if (lower === c && lower !== lt2) {
+              return false;
+            }
+          } else if (lt2.operator === "<=" && !satisfies(lt2.semver, String(c), options)) {
+            return false;
+          }
+        }
+        if (!c.operator && (lt2 || gt2) && gtltComp !== 0) {
+          return false;
+        }
+      }
+      if (gt2 && hasDomLT && !lt2 && gtltComp !== 0) {
+        return false;
+      }
+      if (lt2 && hasDomGT && !gt2 && gtltComp !== 0) {
+        return false;
+      }
+      if (needDomGTPre || needDomLTPre) {
+        return false;
+      }
+      return true;
+    };
+    var higherGT = (a, b, options) => {
+      if (!a) {
+        return b;
+      }
+      const comp = compare(a.semver, b.semver, options);
+      return comp > 0 ? a : comp < 0 ? b : b.operator === ">" && a.operator === ">=" ? b : a;
+    };
+    var lowerLT = (a, b, options) => {
+      if (!a) {
+        return b;
+      }
+      const comp = compare(a.semver, b.semver, options);
+      return comp < 0 ? a : comp > 0 ? b : b.operator === "<" && a.operator === "<=" ? b : a;
+    };
+    module2.exports = subset;
+  }
+});
+
+// node_modules/jsonwebtoken/node_modules/semver/index.js
+var require_semver2 = __commonJS({
+  "node_modules/jsonwebtoken/node_modules/semver/index.js"(exports2, module2) {
+    "use strict";
+    var internalRe = require_re();
+    var constants = require_constants();
+    var SemVer = require_semver();
+    var identifiers = require_identifiers();
+    var parse = require_parse2();
+    var valid = require_valid();
+    var clean = require_clean();
+    var inc = require_inc();
+    var diff = require_diff();
+    var major = require_major();
+    var minor = require_minor();
+    var patch = require_patch();
+    var prerelease = require_prerelease();
+    var compare = require_compare();
+    var rcompare = require_rcompare();
+    var compareLoose = require_compare_loose();
+    var compareBuild = require_compare_build();
+    var sort = require_sort();
+    var rsort = require_rsort();
+    var gt2 = require_gt();
+    var lt2 = require_lt();
+    var eq2 = require_eq();
+    var neq = require_neq();
+    var gte2 = require_gte();
+    var lte2 = require_lte();
+    var cmp = require_cmp();
+    var coerce2 = require_coerce();
+    var Comparator = require_comparator();
+    var Range = require_range2();
+    var satisfies = require_satisfies();
+    var toComparators = require_to_comparators();
+    var maxSatisfying = require_max_satisfying();
+    var minSatisfying = require_min_satisfying();
+    var minVersion = require_min_version();
+    var validRange = require_valid2();
+    var outside = require_outside();
+    var gtr = require_gtr();
+    var ltr = require_ltr();
+    var intersects = require_intersects();
+    var simplifyRange = require_simplify();
+    var subset = require_subset();
+    module2.exports = {
+      parse,
+      valid,
+      clean,
+      inc,
+      diff,
+      major,
+      minor,
+      patch,
+      prerelease,
+      compare,
+      rcompare,
+      compareLoose,
+      compareBuild,
+      sort,
+      rsort,
+      gt: gt2,
+      lt: lt2,
+      eq: eq2,
+      neq,
+      gte: gte2,
+      lte: lte2,
+      cmp,
+      coerce: coerce2,
+      Comparator,
+      Range,
+      satisfies,
+      toComparators,
+      maxSatisfying,
+      minSatisfying,
+      minVersion,
+      validRange,
+      outside,
+      gtr,
+      ltr,
+      intersects,
+      simplifyRange,
+      subset,
+      SemVer,
+      re: internalRe.re,
+      src: internalRe.src,
+      tokens: internalRe.t,
+      SEMVER_SPEC_VERSION: constants.SEMVER_SPEC_VERSION,
+      RELEASE_TYPES: constants.RELEASE_TYPES,
+      compareIdentifiers: identifiers.compareIdentifiers,
+      rcompareIdentifiers: identifiers.rcompareIdentifiers
+    };
+  }
+});
+
+// node_modules/jsonwebtoken/lib/asymmetricKeyDetailsSupported.js
+var require_asymmetricKeyDetailsSupported = __commonJS({
+  "node_modules/jsonwebtoken/lib/asymmetricKeyDetailsSupported.js"(exports2, module2) {
+    var semver = require_semver2();
+    module2.exports = semver.satisfies(process.version, ">=15.7.0");
+  }
+});
+
+// node_modules/jsonwebtoken/lib/rsaPssKeyDetailsSupported.js
+var require_rsaPssKeyDetailsSupported = __commonJS({
+  "node_modules/jsonwebtoken/lib/rsaPssKeyDetailsSupported.js"(exports2, module2) {
+    var semver = require_semver2();
+    module2.exports = semver.satisfies(process.version, ">=16.9.0");
+  }
+});
+
+// node_modules/jsonwebtoken/lib/validateAsymmetricKey.js
+var require_validateAsymmetricKey = __commonJS({
+  "node_modules/jsonwebtoken/lib/validateAsymmetricKey.js"(exports2, module2) {
+    var ASYMMETRIC_KEY_DETAILS_SUPPORTED = require_asymmetricKeyDetailsSupported();
+    var RSA_PSS_KEY_DETAILS_SUPPORTED = require_rsaPssKeyDetailsSupported();
+    var allowedAlgorithmsForKeys = {
+      "ec": ["ES256", "ES384", "ES512"],
+      "rsa": ["RS256", "PS256", "RS384", "PS384", "RS512", "PS512"],
+      "rsa-pss": ["PS256", "PS384", "PS512"]
+    };
+    var allowedCurves = {
+      ES256: "prime256v1",
+      ES384: "secp384r1",
+      ES512: "secp521r1"
+    };
+    module2.exports = function(algorithm, key) {
+      if (!algorithm || !key) return;
+      const keyType = key.asymmetricKeyType;
+      if (!keyType) return;
+      const allowedAlgorithms = allowedAlgorithmsForKeys[keyType];
+      if (!allowedAlgorithms) {
+        throw new Error(`Unknown key type "${keyType}".`);
+      }
+      if (!allowedAlgorithms.includes(algorithm)) {
+        throw new Error(`"alg" parameter for "${keyType}" key type must be one of: ${allowedAlgorithms.join(", ")}.`);
+      }
+      if (ASYMMETRIC_KEY_DETAILS_SUPPORTED) {
+        switch (keyType) {
+          case "ec":
+            const keyCurve = key.asymmetricKeyDetails.namedCurve;
+            const allowedCurve = allowedCurves[algorithm];
+            if (keyCurve !== allowedCurve) {
+              throw new Error(`"alg" parameter "${algorithm}" requires curve "${allowedCurve}".`);
+            }
+            break;
+          case "rsa-pss":
+            if (RSA_PSS_KEY_DETAILS_SUPPORTED) {
+              const length = parseInt(algorithm.slice(-3), 10);
+              const { hashAlgorithm, mgf1HashAlgorithm, saltLength } = key.asymmetricKeyDetails;
+              if (hashAlgorithm !== `sha${length}` || mgf1HashAlgorithm !== hashAlgorithm) {
+                throw new Error(`Invalid key for this operation, its RSA-PSS parameters do not meet the requirements of "alg" ${algorithm}.`);
+              }
+              if (saltLength !== void 0 && saltLength > length >> 3) {
+                throw new Error(`Invalid key for this operation, its RSA-PSS parameter saltLength does not meet the requirements of "alg" ${algorithm}.`);
+              }
+            }
+            break;
+        }
+      }
+    };
+  }
+});
+
+// node_modules/jsonwebtoken/lib/psSupported.js
+var require_psSupported = __commonJS({
+  "node_modules/jsonwebtoken/lib/psSupported.js"(exports2, module2) {
+    var semver = require_semver2();
+    module2.exports = semver.satisfies(process.version, "^6.12.0 || >=8.0.0");
+  }
+});
+
+// node_modules/jsonwebtoken/verify.js
+var require_verify = __commonJS({
+  "node_modules/jsonwebtoken/verify.js"(exports2, module2) {
+    var JsonWebTokenError = require_JsonWebTokenError();
+    var NotBeforeError = require_NotBeforeError();
+    var TokenExpiredError = require_TokenExpiredError();
+    var decode = require_decode();
+    var timespan = require_timespan();
+    var validateAsymmetricKey = require_validateAsymmetricKey();
+    var PS_SUPPORTED = require_psSupported();
+    var jws = require_jws();
+    var { KeyObject, createSecretKey, createPublicKey } = require("crypto");
+    var PUB_KEY_ALGS = ["RS256", "RS384", "RS512"];
+    var EC_KEY_ALGS = ["ES256", "ES384", "ES512"];
+    var RSA_KEY_ALGS = ["RS256", "RS384", "RS512"];
+    var HS_ALGS = ["HS256", "HS384", "HS512"];
+    if (PS_SUPPORTED) {
+      PUB_KEY_ALGS.splice(PUB_KEY_ALGS.length, 0, "PS256", "PS384", "PS512");
+      RSA_KEY_ALGS.splice(RSA_KEY_ALGS.length, 0, "PS256", "PS384", "PS512");
     }
+    module2.exports = function(jwtString, secretOrPublicKey, options, callback) {
+      if (typeof options === "function" && !callback) {
+        callback = options;
+        options = {};
+      }
+      if (!options) {
+        options = {};
+      }
+      options = Object.assign({}, options);
+      let done;
+      if (callback) {
+        done = callback;
+      } else {
+        done = function(err, data) {
+          if (err) throw err;
+          return data;
+        };
+      }
+      if (options.clockTimestamp && typeof options.clockTimestamp !== "number") {
+        return done(new JsonWebTokenError("clockTimestamp must be a number"));
+      }
+      if (options.nonce !== void 0 && (typeof options.nonce !== "string" || options.nonce.trim() === "")) {
+        return done(new JsonWebTokenError("nonce must be a non-empty string"));
+      }
+      if (options.allowInvalidAsymmetricKeyTypes !== void 0 && typeof options.allowInvalidAsymmetricKeyTypes !== "boolean") {
+        return done(new JsonWebTokenError("allowInvalidAsymmetricKeyTypes must be a boolean"));
+      }
+      const clockTimestamp = options.clockTimestamp || Math.floor(Date.now() / 1e3);
+      if (!jwtString) {
+        return done(new JsonWebTokenError("jwt must be provided"));
+      }
+      if (typeof jwtString !== "string") {
+        return done(new JsonWebTokenError("jwt must be a string"));
+      }
+      const parts = jwtString.split(".");
+      if (parts.length !== 3) {
+        return done(new JsonWebTokenError("jwt malformed"));
+      }
+      let decodedToken;
+      try {
+        decodedToken = decode(jwtString, { complete: true });
+      } catch (err) {
+        return done(err);
+      }
+      if (!decodedToken) {
+        return done(new JsonWebTokenError("invalid token"));
+      }
+      const header = decodedToken.header;
+      let getSecret;
+      if (typeof secretOrPublicKey === "function") {
+        if (!callback) {
+          return done(new JsonWebTokenError("verify must be called asynchronous if secret or public key is provided as a callback"));
+        }
+        getSecret = secretOrPublicKey;
+      } else {
+        getSecret = function(header2, secretCallback) {
+          return secretCallback(null, secretOrPublicKey);
+        };
+      }
+      return getSecret(header, function(err, secretOrPublicKey2) {
+        if (err) {
+          return done(new JsonWebTokenError("error in secret or public key callback: " + err.message));
+        }
+        const hasSignature = parts[2].trim() !== "";
+        if (!hasSignature && secretOrPublicKey2) {
+          return done(new JsonWebTokenError("jwt signature is required"));
+        }
+        if (hasSignature && !secretOrPublicKey2) {
+          return done(new JsonWebTokenError("secret or public key must be provided"));
+        }
+        if (!hasSignature && !options.algorithms) {
+          return done(new JsonWebTokenError('please specify "none" in "algorithms" to verify unsigned tokens'));
+        }
+        if (secretOrPublicKey2 != null && !(secretOrPublicKey2 instanceof KeyObject)) {
+          try {
+            secretOrPublicKey2 = createPublicKey(secretOrPublicKey2);
+          } catch (_) {
+            try {
+              secretOrPublicKey2 = createSecretKey(typeof secretOrPublicKey2 === "string" ? Buffer.from(secretOrPublicKey2) : secretOrPublicKey2);
+            } catch (_2) {
+              return done(new JsonWebTokenError("secretOrPublicKey is not valid key material"));
+            }
+          }
+        }
+        if (!options.algorithms) {
+          if (secretOrPublicKey2.type === "secret") {
+            options.algorithms = HS_ALGS;
+          } else if (["rsa", "rsa-pss"].includes(secretOrPublicKey2.asymmetricKeyType)) {
+            options.algorithms = RSA_KEY_ALGS;
+          } else if (secretOrPublicKey2.asymmetricKeyType === "ec") {
+            options.algorithms = EC_KEY_ALGS;
+          } else {
+            options.algorithms = PUB_KEY_ALGS;
+          }
+        }
+        if (options.algorithms.indexOf(decodedToken.header.alg) === -1) {
+          return done(new JsonWebTokenError("invalid algorithm"));
+        }
+        if (header.alg.startsWith("HS") && secretOrPublicKey2.type !== "secret") {
+          return done(new JsonWebTokenError(`secretOrPublicKey must be a symmetric key when using ${header.alg}`));
+        } else if (/^(?:RS|PS|ES)/.test(header.alg) && secretOrPublicKey2.type !== "public") {
+          return done(new JsonWebTokenError(`secretOrPublicKey must be an asymmetric key when using ${header.alg}`));
+        }
+        if (!options.allowInvalidAsymmetricKeyTypes) {
+          try {
+            validateAsymmetricKey(header.alg, secretOrPublicKey2);
+          } catch (e) {
+            return done(e);
+          }
+        }
+        let valid;
+        try {
+          valid = jws.verify(jwtString, decodedToken.header.alg, secretOrPublicKey2);
+        } catch (e) {
+          return done(e);
+        }
+        if (!valid) {
+          return done(new JsonWebTokenError("invalid signature"));
+        }
+        const payload = decodedToken.payload;
+        if (typeof payload.nbf !== "undefined" && !options.ignoreNotBefore) {
+          if (typeof payload.nbf !== "number") {
+            return done(new JsonWebTokenError("invalid nbf value"));
+          }
+          if (payload.nbf > clockTimestamp + (options.clockTolerance || 0)) {
+            return done(new NotBeforeError("jwt not active", new Date(payload.nbf * 1e3)));
+          }
+        }
+        if (typeof payload.exp !== "undefined" && !options.ignoreExpiration) {
+          if (typeof payload.exp !== "number") {
+            return done(new JsonWebTokenError("invalid exp value"));
+          }
+          if (clockTimestamp >= payload.exp + (options.clockTolerance || 0)) {
+            return done(new TokenExpiredError("jwt expired", new Date(payload.exp * 1e3)));
+          }
+        }
+        if (options.audience) {
+          const audiences = Array.isArray(options.audience) ? options.audience : [options.audience];
+          const target = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+          const match = target.some(function(targetAudience) {
+            return audiences.some(function(audience) {
+              return audience instanceof RegExp ? audience.test(targetAudience) : audience === targetAudience;
+            });
+          });
+          if (!match) {
+            return done(new JsonWebTokenError("jwt audience invalid. expected: " + audiences.join(" or ")));
+          }
+        }
+        if (options.issuer) {
+          const invalid_issuer = typeof options.issuer === "string" && payload.iss !== options.issuer || Array.isArray(options.issuer) && options.issuer.indexOf(payload.iss) === -1;
+          if (invalid_issuer) {
+            return done(new JsonWebTokenError("jwt issuer invalid. expected: " + options.issuer));
+          }
+        }
+        if (options.subject) {
+          if (payload.sub !== options.subject) {
+            return done(new JsonWebTokenError("jwt subject invalid. expected: " + options.subject));
+          }
+        }
+        if (options.jwtid) {
+          if (payload.jti !== options.jwtid) {
+            return done(new JsonWebTokenError("jwt jwtid invalid. expected: " + options.jwtid));
+          }
+        }
+        if (options.nonce) {
+          if (payload.nonce !== options.nonce) {
+            return done(new JsonWebTokenError("jwt nonce invalid. expected: " + options.nonce));
+          }
+        }
+        if (options.maxAge) {
+          if (typeof payload.iat !== "number") {
+            return done(new JsonWebTokenError("iat required when maxAge is specified"));
+          }
+          const maxAgeTimestamp = timespan(options.maxAge, payload.iat);
+          if (typeof maxAgeTimestamp === "undefined") {
+            return done(new JsonWebTokenError('"maxAge" should be a number of seconds or string representing a timespan eg: "1d", "20h", 60'));
+          }
+          if (clockTimestamp >= maxAgeTimestamp + (options.clockTolerance || 0)) {
+            return done(new TokenExpiredError("maxAge exceeded", new Date(maxAgeTimestamp * 1e3)));
+          }
+        }
+        if (options.complete === true) {
+          const signature = decodedToken.signature;
+          return done(null, {
+            header,
+            payload,
+            signature
+          });
+        }
+        return done(null, payload);
+      });
+    };
+  }
+});
+
+// node_modules/lodash.includes/index.js
+var require_lodash = __commonJS({
+  "node_modules/lodash.includes/index.js"(exports2, module2) {
+    var INFINITY = 1 / 0;
+    var MAX_SAFE_INTEGER = 9007199254740991;
+    var MAX_INTEGER = 17976931348623157e292;
+    var NAN = 0 / 0;
+    var argsTag = "[object Arguments]";
+    var funcTag = "[object Function]";
+    var genTag = "[object GeneratorFunction]";
+    var stringTag = "[object String]";
+    var symbolTag = "[object Symbol]";
+    var reTrim = /^\s+|\s+$/g;
+    var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
+    var reIsBinary = /^0b[01]+$/i;
+    var reIsOctal = /^0o[0-7]+$/i;
+    var reIsUint = /^(?:0|[1-9]\d*)$/;
+    var freeParseInt = parseInt;
+    function arrayMap(array, iteratee) {
+      var index = -1, length = array ? array.length : 0, result = Array(length);
+      while (++index < length) {
+        result[index] = iteratee(array[index], index, array);
+      }
+      return result;
+    }
+    function baseFindIndex(array, predicate, fromIndex, fromRight) {
+      var length = array.length, index = fromIndex + (fromRight ? 1 : -1);
+      while (fromRight ? index-- : ++index < length) {
+        if (predicate(array[index], index, array)) {
+          return index;
+        }
+      }
+      return -1;
+    }
+    function baseIndexOf(array, value, fromIndex) {
+      if (value !== value) {
+        return baseFindIndex(array, baseIsNaN, fromIndex);
+      }
+      var index = fromIndex - 1, length = array.length;
+      while (++index < length) {
+        if (array[index] === value) {
+          return index;
+        }
+      }
+      return -1;
+    }
+    function baseIsNaN(value) {
+      return value !== value;
+    }
+    function baseTimes(n, iteratee) {
+      var index = -1, result = Array(n);
+      while (++index < n) {
+        result[index] = iteratee(index);
+      }
+      return result;
+    }
+    function baseValues(object, props) {
+      return arrayMap(props, function(key) {
+        return object[key];
+      });
+    }
+    function overArg(func, transform) {
+      return function(arg) {
+        return func(transform(arg));
+      };
+    }
+    var objectProto = Object.prototype;
+    var hasOwnProperty = objectProto.hasOwnProperty;
+    var objectToString = objectProto.toString;
+    var propertyIsEnumerable = objectProto.propertyIsEnumerable;
+    var nativeKeys = overArg(Object.keys, Object);
+    var nativeMax = Math.max;
+    function arrayLikeKeys(value, inherited) {
+      var result = isArray(value) || isArguments(value) ? baseTimes(value.length, String) : [];
+      var length = result.length, skipIndexes = !!length;
+      for (var key in value) {
+        if ((inherited || hasOwnProperty.call(value, key)) && !(skipIndexes && (key == "length" || isIndex(key, length)))) {
+          result.push(key);
+        }
+      }
+      return result;
+    }
+    function baseKeys(object) {
+      if (!isPrototype(object)) {
+        return nativeKeys(object);
+      }
+      var result = [];
+      for (var key in Object(object)) {
+        if (hasOwnProperty.call(object, key) && key != "constructor") {
+          result.push(key);
+        }
+      }
+      return result;
+    }
+    function isIndex(value, length) {
+      length = length == null ? MAX_SAFE_INTEGER : length;
+      return !!length && (typeof value == "number" || reIsUint.test(value)) && (value > -1 && value % 1 == 0 && value < length);
+    }
+    function isPrototype(value) {
+      var Ctor = value && value.constructor, proto = typeof Ctor == "function" && Ctor.prototype || objectProto;
+      return value === proto;
+    }
+    function includes(collection, value, fromIndex, guard) {
+      collection = isArrayLike(collection) ? collection : values(collection);
+      fromIndex = fromIndex && !guard ? toInteger(fromIndex) : 0;
+      var length = collection.length;
+      if (fromIndex < 0) {
+        fromIndex = nativeMax(length + fromIndex, 0);
+      }
+      return isString(collection) ? fromIndex <= length && collection.indexOf(value, fromIndex) > -1 : !!length && baseIndexOf(collection, value, fromIndex) > -1;
+    }
+    function isArguments(value) {
+      return isArrayLikeObject(value) && hasOwnProperty.call(value, "callee") && (!propertyIsEnumerable.call(value, "callee") || objectToString.call(value) == argsTag);
+    }
+    var isArray = Array.isArray;
+    function isArrayLike(value) {
+      return value != null && isLength(value.length) && !isFunction(value);
+    }
+    function isArrayLikeObject(value) {
+      return isObjectLike(value) && isArrayLike(value);
+    }
+    function isFunction(value) {
+      var tag = isObject(value) ? objectToString.call(value) : "";
+      return tag == funcTag || tag == genTag;
+    }
+    function isLength(value) {
+      return typeof value == "number" && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+    }
+    function isObject(value) {
+      var type = typeof value;
+      return !!value && (type == "object" || type == "function");
+    }
+    function isObjectLike(value) {
+      return !!value && typeof value == "object";
+    }
+    function isString(value) {
+      return typeof value == "string" || !isArray(value) && isObjectLike(value) && objectToString.call(value) == stringTag;
+    }
+    function isSymbol(value) {
+      return typeof value == "symbol" || isObjectLike(value) && objectToString.call(value) == symbolTag;
+    }
+    function toFinite(value) {
+      if (!value) {
+        return value === 0 ? value : 0;
+      }
+      value = toNumber(value);
+      if (value === INFINITY || value === -INFINITY) {
+        var sign = value < 0 ? -1 : 1;
+        return sign * MAX_INTEGER;
+      }
+      return value === value ? value : 0;
+    }
+    function toInteger(value) {
+      var result = toFinite(value), remainder = result % 1;
+      return result === result ? remainder ? result - remainder : result : 0;
+    }
+    function toNumber(value) {
+      if (typeof value == "number") {
+        return value;
+      }
+      if (isSymbol(value)) {
+        return NAN;
+      }
+      if (isObject(value)) {
+        var other = typeof value.valueOf == "function" ? value.valueOf() : value;
+        value = isObject(other) ? other + "" : other;
+      }
+      if (typeof value != "string") {
+        return value === 0 ? value : +value;
+      }
+      value = value.replace(reTrim, "");
+      var isBinary = reIsBinary.test(value);
+      return isBinary || reIsOctal.test(value) ? freeParseInt(value.slice(2), isBinary ? 2 : 8) : reIsBadHex.test(value) ? NAN : +value;
+    }
+    function keys(object) {
+      return isArrayLike(object) ? arrayLikeKeys(object) : baseKeys(object);
+    }
+    function values(object) {
+      return object ? baseValues(object, keys(object)) : [];
+    }
+    module2.exports = includes;
+  }
+});
+
+// node_modules/lodash.isboolean/index.js
+var require_lodash2 = __commonJS({
+  "node_modules/lodash.isboolean/index.js"(exports2, module2) {
+    var boolTag = "[object Boolean]";
+    var objectProto = Object.prototype;
+    var objectToString = objectProto.toString;
+    function isBoolean(value) {
+      return value === true || value === false || isObjectLike(value) && objectToString.call(value) == boolTag;
+    }
+    function isObjectLike(value) {
+      return !!value && typeof value == "object";
+    }
+    module2.exports = isBoolean;
+  }
+});
+
+// node_modules/lodash.isinteger/index.js
+var require_lodash3 = __commonJS({
+  "node_modules/lodash.isinteger/index.js"(exports2, module2) {
+    var INFINITY = 1 / 0;
+    var MAX_INTEGER = 17976931348623157e292;
+    var NAN = 0 / 0;
+    var symbolTag = "[object Symbol]";
+    var reTrim = /^\s+|\s+$/g;
+    var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
+    var reIsBinary = /^0b[01]+$/i;
+    var reIsOctal = /^0o[0-7]+$/i;
+    var freeParseInt = parseInt;
+    var objectProto = Object.prototype;
+    var objectToString = objectProto.toString;
+    function isInteger(value) {
+      return typeof value == "number" && value == toInteger(value);
+    }
+    function isObject(value) {
+      var type = typeof value;
+      return !!value && (type == "object" || type == "function");
+    }
+    function isObjectLike(value) {
+      return !!value && typeof value == "object";
+    }
+    function isSymbol(value) {
+      return typeof value == "symbol" || isObjectLike(value) && objectToString.call(value) == symbolTag;
+    }
+    function toFinite(value) {
+      if (!value) {
+        return value === 0 ? value : 0;
+      }
+      value = toNumber(value);
+      if (value === INFINITY || value === -INFINITY) {
+        var sign = value < 0 ? -1 : 1;
+        return sign * MAX_INTEGER;
+      }
+      return value === value ? value : 0;
+    }
+    function toInteger(value) {
+      var result = toFinite(value), remainder = result % 1;
+      return result === result ? remainder ? result - remainder : result : 0;
+    }
+    function toNumber(value) {
+      if (typeof value == "number") {
+        return value;
+      }
+      if (isSymbol(value)) {
+        return NAN;
+      }
+      if (isObject(value)) {
+        var other = typeof value.valueOf == "function" ? value.valueOf() : value;
+        value = isObject(other) ? other + "" : other;
+      }
+      if (typeof value != "string") {
+        return value === 0 ? value : +value;
+      }
+      value = value.replace(reTrim, "");
+      var isBinary = reIsBinary.test(value);
+      return isBinary || reIsOctal.test(value) ? freeParseInt(value.slice(2), isBinary ? 2 : 8) : reIsBadHex.test(value) ? NAN : +value;
+    }
+    module2.exports = isInteger;
+  }
+});
+
+// node_modules/lodash.isnumber/index.js
+var require_lodash4 = __commonJS({
+  "node_modules/lodash.isnumber/index.js"(exports2, module2) {
+    var numberTag = "[object Number]";
+    var objectProto = Object.prototype;
+    var objectToString = objectProto.toString;
+    function isObjectLike(value) {
+      return !!value && typeof value == "object";
+    }
+    function isNumber(value) {
+      return typeof value == "number" || isObjectLike(value) && objectToString.call(value) == numberTag;
+    }
+    module2.exports = isNumber;
+  }
+});
+
+// node_modules/lodash.isplainobject/index.js
+var require_lodash5 = __commonJS({
+  "node_modules/lodash.isplainobject/index.js"(exports2, module2) {
+    var objectTag = "[object Object]";
+    function isHostObject(value) {
+      var result = false;
+      if (value != null && typeof value.toString != "function") {
+        try {
+          result = !!(value + "");
+        } catch (e) {
+        }
+      }
+      return result;
+    }
+    function overArg(func, transform) {
+      return function(arg) {
+        return func(transform(arg));
+      };
+    }
+    var funcProto = Function.prototype;
+    var objectProto = Object.prototype;
+    var funcToString = funcProto.toString;
+    var hasOwnProperty = objectProto.hasOwnProperty;
+    var objectCtorString = funcToString.call(Object);
+    var objectToString = objectProto.toString;
+    var getPrototype = overArg(Object.getPrototypeOf, Object);
+    function isObjectLike(value) {
+      return !!value && typeof value == "object";
+    }
+    function isPlainObject(value) {
+      if (!isObjectLike(value) || objectToString.call(value) != objectTag || isHostObject(value)) {
+        return false;
+      }
+      var proto = getPrototype(value);
+      if (proto === null) {
+        return true;
+      }
+      var Ctor = hasOwnProperty.call(proto, "constructor") && proto.constructor;
+      return typeof Ctor == "function" && Ctor instanceof Ctor && funcToString.call(Ctor) == objectCtorString;
+    }
+    module2.exports = isPlainObject;
+  }
+});
+
+// node_modules/lodash.isstring/index.js
+var require_lodash6 = __commonJS({
+  "node_modules/lodash.isstring/index.js"(exports2, module2) {
+    var stringTag = "[object String]";
+    var objectProto = Object.prototype;
+    var objectToString = objectProto.toString;
+    var isArray = Array.isArray;
+    function isObjectLike(value) {
+      return !!value && typeof value == "object";
+    }
+    function isString(value) {
+      return typeof value == "string" || !isArray(value) && isObjectLike(value) && objectToString.call(value) == stringTag;
+    }
+    module2.exports = isString;
+  }
+});
+
+// node_modules/lodash.once/index.js
+var require_lodash7 = __commonJS({
+  "node_modules/lodash.once/index.js"(exports2, module2) {
+    var FUNC_ERROR_TEXT = "Expected a function";
+    var INFINITY = 1 / 0;
+    var MAX_INTEGER = 17976931348623157e292;
+    var NAN = 0 / 0;
+    var symbolTag = "[object Symbol]";
+    var reTrim = /^\s+|\s+$/g;
+    var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
+    var reIsBinary = /^0b[01]+$/i;
+    var reIsOctal = /^0o[0-7]+$/i;
+    var freeParseInt = parseInt;
+    var objectProto = Object.prototype;
+    var objectToString = objectProto.toString;
+    function before(n, func) {
+      var result;
+      if (typeof func != "function") {
+        throw new TypeError(FUNC_ERROR_TEXT);
+      }
+      n = toInteger(n);
+      return function() {
+        if (--n > 0) {
+          result = func.apply(this, arguments);
+        }
+        if (n <= 1) {
+          func = void 0;
+        }
+        return result;
+      };
+    }
+    function once(func) {
+      return before(2, func);
+    }
+    function isObject(value) {
+      var type = typeof value;
+      return !!value && (type == "object" || type == "function");
+    }
+    function isObjectLike(value) {
+      return !!value && typeof value == "object";
+    }
+    function isSymbol(value) {
+      return typeof value == "symbol" || isObjectLike(value) && objectToString.call(value) == symbolTag;
+    }
+    function toFinite(value) {
+      if (!value) {
+        return value === 0 ? value : 0;
+      }
+      value = toNumber(value);
+      if (value === INFINITY || value === -INFINITY) {
+        var sign = value < 0 ? -1 : 1;
+        return sign * MAX_INTEGER;
+      }
+      return value === value ? value : 0;
+    }
+    function toInteger(value) {
+      var result = toFinite(value), remainder = result % 1;
+      return result === result ? remainder ? result - remainder : result : 0;
+    }
+    function toNumber(value) {
+      if (typeof value == "number") {
+        return value;
+      }
+      if (isSymbol(value)) {
+        return NAN;
+      }
+      if (isObject(value)) {
+        var other = typeof value.valueOf == "function" ? value.valueOf() : value;
+        value = isObject(other) ? other + "" : other;
+      }
+      if (typeof value != "string") {
+        return value === 0 ? value : +value;
+      }
+      value = value.replace(reTrim, "");
+      var isBinary = reIsBinary.test(value);
+      return isBinary || reIsOctal.test(value) ? freeParseInt(value.slice(2), isBinary ? 2 : 8) : reIsBadHex.test(value) ? NAN : +value;
+    }
+    module2.exports = once;
+  }
+});
+
+// node_modules/jsonwebtoken/sign.js
+var require_sign = __commonJS({
+  "node_modules/jsonwebtoken/sign.js"(exports2, module2) {
+    var timespan = require_timespan();
+    var PS_SUPPORTED = require_psSupported();
+    var validateAsymmetricKey = require_validateAsymmetricKey();
+    var jws = require_jws();
+    var includes = require_lodash();
+    var isBoolean = require_lodash2();
+    var isInteger = require_lodash3();
+    var isNumber = require_lodash4();
+    var isPlainObject = require_lodash5();
+    var isString = require_lodash6();
+    var once = require_lodash7();
+    var { KeyObject, createSecretKey, createPrivateKey } = require("crypto");
+    var SUPPORTED_ALGS = ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "HS256", "HS384", "HS512", "none"];
+    if (PS_SUPPORTED) {
+      SUPPORTED_ALGS.splice(3, 0, "PS256", "PS384", "PS512");
+    }
+    var sign_options_schema = {
+      expiresIn: { isValid: function(value) {
+        return isInteger(value) || isString(value) && value;
+      }, message: '"expiresIn" should be a number of seconds or string representing a timespan' },
+      notBefore: { isValid: function(value) {
+        return isInteger(value) || isString(value) && value;
+      }, message: '"notBefore" should be a number of seconds or string representing a timespan' },
+      audience: { isValid: function(value) {
+        return isString(value) || Array.isArray(value);
+      }, message: '"audience" must be a string or array' },
+      algorithm: { isValid: includes.bind(null, SUPPORTED_ALGS), message: '"algorithm" must be a valid string enum value' },
+      header: { isValid: isPlainObject, message: '"header" must be an object' },
+      encoding: { isValid: isString, message: '"encoding" must be a string' },
+      issuer: { isValid: isString, message: '"issuer" must be a string' },
+      subject: { isValid: isString, message: '"subject" must be a string' },
+      jwtid: { isValid: isString, message: '"jwtid" must be a string' },
+      noTimestamp: { isValid: isBoolean, message: '"noTimestamp" must be a boolean' },
+      keyid: { isValid: isString, message: '"keyid" must be a string' },
+      mutatePayload: { isValid: isBoolean, message: '"mutatePayload" must be a boolean' },
+      allowInsecureKeySizes: { isValid: isBoolean, message: '"allowInsecureKeySizes" must be a boolean' },
+      allowInvalidAsymmetricKeyTypes: { isValid: isBoolean, message: '"allowInvalidAsymmetricKeyTypes" must be a boolean' }
+    };
+    var registered_claims_schema = {
+      iat: { isValid: isNumber, message: '"iat" should be a number of seconds' },
+      exp: { isValid: isNumber, message: '"exp" should be a number of seconds' },
+      nbf: { isValid: isNumber, message: '"nbf" should be a number of seconds' }
+    };
+    function validate(schema, allowUnknown, object, parameterName) {
+      if (!isPlainObject(object)) {
+        throw new Error('Expected "' + parameterName + '" to be a plain object.');
+      }
+      Object.keys(object).forEach(function(key) {
+        const validator = schema[key];
+        if (!validator) {
+          if (!allowUnknown) {
+            throw new Error('"' + key + '" is not allowed in "' + parameterName + '"');
+          }
+          return;
+        }
+        if (!validator.isValid(object[key])) {
+          throw new Error(validator.message);
+        }
+      });
+    }
+    function validateOptions(options) {
+      return validate(sign_options_schema, false, options, "options");
+    }
+    function validatePayload(payload) {
+      return validate(registered_claims_schema, true, payload, "payload");
+    }
+    var options_to_payload = {
+      "audience": "aud",
+      "issuer": "iss",
+      "subject": "sub",
+      "jwtid": "jti"
+    };
+    var options_for_objects = [
+      "expiresIn",
+      "notBefore",
+      "noTimestamp",
+      "audience",
+      "issuer",
+      "subject",
+      "jwtid"
+    ];
+    module2.exports = function(payload, secretOrPrivateKey, options, callback) {
+      if (typeof options === "function") {
+        callback = options;
+        options = {};
+      } else {
+        options = options || {};
+      }
+      const isObjectPayload = typeof payload === "object" && !Buffer.isBuffer(payload);
+      const header = Object.assign({
+        alg: options.algorithm || "HS256",
+        typ: isObjectPayload ? "JWT" : void 0,
+        kid: options.keyid
+      }, options.header);
+      function failure(err) {
+        if (callback) {
+          return callback(err);
+        }
+        throw err;
+      }
+      if (!secretOrPrivateKey && options.algorithm !== "none") {
+        return failure(new Error("secretOrPrivateKey must have a value"));
+      }
+      if (secretOrPrivateKey != null && !(secretOrPrivateKey instanceof KeyObject)) {
+        try {
+          secretOrPrivateKey = createPrivateKey(secretOrPrivateKey);
+        } catch (_) {
+          try {
+            secretOrPrivateKey = createSecretKey(typeof secretOrPrivateKey === "string" ? Buffer.from(secretOrPrivateKey) : secretOrPrivateKey);
+          } catch (_2) {
+            return failure(new Error("secretOrPrivateKey is not valid key material"));
+          }
+        }
+      }
+      if (header.alg.startsWith("HS") && secretOrPrivateKey.type !== "secret") {
+        return failure(new Error(`secretOrPrivateKey must be a symmetric key when using ${header.alg}`));
+      } else if (/^(?:RS|PS|ES)/.test(header.alg)) {
+        if (secretOrPrivateKey.type !== "private") {
+          return failure(new Error(`secretOrPrivateKey must be an asymmetric key when using ${header.alg}`));
+        }
+        if (!options.allowInsecureKeySizes && !header.alg.startsWith("ES") && secretOrPrivateKey.asymmetricKeyDetails !== void 0 && //KeyObject.asymmetricKeyDetails is supported in Node 15+
+        secretOrPrivateKey.asymmetricKeyDetails.modulusLength < 2048) {
+          return failure(new Error(`secretOrPrivateKey has a minimum key size of 2048 bits for ${header.alg}`));
+        }
+      }
+      if (typeof payload === "undefined") {
+        return failure(new Error("payload is required"));
+      } else if (isObjectPayload) {
+        try {
+          validatePayload(payload);
+        } catch (error) {
+          return failure(error);
+        }
+        if (!options.mutatePayload) {
+          payload = Object.assign({}, payload);
+        }
+      } else {
+        const invalid_options = options_for_objects.filter(function(opt) {
+          return typeof options[opt] !== "undefined";
+        });
+        if (invalid_options.length > 0) {
+          return failure(new Error("invalid " + invalid_options.join(",") + " option for " + typeof payload + " payload"));
+        }
+      }
+      if (typeof payload.exp !== "undefined" && typeof options.expiresIn !== "undefined") {
+        return failure(new Error('Bad "options.expiresIn" option the payload already has an "exp" property.'));
+      }
+      if (typeof payload.nbf !== "undefined" && typeof options.notBefore !== "undefined") {
+        return failure(new Error('Bad "options.notBefore" option the payload already has an "nbf" property.'));
+      }
+      try {
+        validateOptions(options);
+      } catch (error) {
+        return failure(error);
+      }
+      if (!options.allowInvalidAsymmetricKeyTypes) {
+        try {
+          validateAsymmetricKey(header.alg, secretOrPrivateKey);
+        } catch (error) {
+          return failure(error);
+        }
+      }
+      const timestamp2 = payload.iat || Math.floor(Date.now() / 1e3);
+      if (options.noTimestamp) {
+        delete payload.iat;
+      } else if (isObjectPayload) {
+        payload.iat = timestamp2;
+      }
+      if (typeof options.notBefore !== "undefined") {
+        try {
+          payload.nbf = timespan(options.notBefore, timestamp2);
+        } catch (err) {
+          return failure(err);
+        }
+        if (typeof payload.nbf === "undefined") {
+          return failure(new Error('"notBefore" should be a number of seconds or string representing a timespan eg: "1d", "20h", 60'));
+        }
+      }
+      if (typeof options.expiresIn !== "undefined" && typeof payload === "object") {
+        try {
+          payload.exp = timespan(options.expiresIn, timestamp2);
+        } catch (err) {
+          return failure(err);
+        }
+        if (typeof payload.exp === "undefined") {
+          return failure(new Error('"expiresIn" should be a number of seconds or string representing a timespan eg: "1d", "20h", 60'));
+        }
+      }
+      Object.keys(options_to_payload).forEach(function(key) {
+        const claim = options_to_payload[key];
+        if (typeof options[key] !== "undefined") {
+          if (typeof payload[claim] !== "undefined") {
+            return failure(new Error('Bad "options.' + key + '" option. The payload already has an "' + claim + '" property.'));
+          }
+          payload[claim] = options[key];
+        }
+      });
+      const encoding = options.encoding || "utf8";
+      if (typeof callback === "function") {
+        callback = callback && once(callback);
+        jws.createSign({
+          header,
+          privateKey: secretOrPrivateKey,
+          payload,
+          encoding
+        }).once("error", callback).once("done", function(signature) {
+          if (!options.allowInsecureKeySizes && /^(?:RS|PS)/.test(header.alg) && signature.length < 256) {
+            return callback(new Error(`secretOrPrivateKey has a minimum key size of 2048 bits for ${header.alg}`));
+          }
+          callback(null, signature);
+        });
+      } else {
+        let signature = jws.sign({ header, payload, secret: secretOrPrivateKey, encoding });
+        if (!options.allowInsecureKeySizes && /^(?:RS|PS)/.test(header.alg) && signature.length < 256) {
+          throw new Error(`secretOrPrivateKey has a minimum key size of 2048 bits for ${header.alg}`);
+        }
+        return signature;
+      }
+    };
+  }
+});
+
+// node_modules/jsonwebtoken/index.js
+var require_jsonwebtoken = __commonJS({
+  "node_modules/jsonwebtoken/index.js"(exports2, module2) {
+    module2.exports = {
+      decode: require_decode(),
+      verify: require_verify(),
+      sign: require_sign(),
+      JsonWebTokenError: require_JsonWebTokenError(),
+      NotBeforeError: require_NotBeforeError(),
+      TokenExpiredError: require_TokenExpiredError()
+    };
   }
 });
 
@@ -26766,7 +28196,7 @@ var require_defaults = __commonJS({
 });
 
 // node_modules/pg/lib/utils.js
-var require_utils4 = __commonJS({
+var require_utils3 = __commonJS({
   "node_modules/pg/lib/utils.js"(exports2, module2) {
     "use strict";
     var defaults2 = require_defaults();
@@ -27013,7 +28443,7 @@ var require_utils_webcrypto = __commonJS({
 });
 
 // node_modules/pg/lib/crypto/utils.js
-var require_utils5 = __commonJS({
+var require_utils4 = __commonJS({
   "node_modules/pg/lib/crypto/utils.js"(exports2, module2) {
     "use strict";
     var useLegacyCrypto = parseInt(process.versions && process.versions.node && process.versions.node.split(".")[0]) < 15;
@@ -27142,7 +28572,7 @@ var require_cert_signatures = __commonJS({
 var require_sasl = __commonJS({
   "node_modules/pg/lib/crypto/sasl.js"(exports2, module2) {
     "use strict";
-    var crypto = require_utils5();
+    var crypto = require_utils4();
     var { signatureAlgorithmHashFromCertificate } = require_cert_signatures();
     function startSession(mechanisms, stream) {
       const candidates = ["SCRAM-SHA-256"];
@@ -27163,8 +28593,8 @@ var require_sasl = __commonJS({
         message: "SASLInitialResponse"
       };
     }
-    async function continueSession(session2, password, serverData, stream) {
-      if (session2.message !== "SASLInitialResponse") {
+    async function continueSession(session, password, serverData, stream) {
+      if (session.message !== "SASLInitialResponse") {
         throw new Error("SASL: Last message was not SASLInitialResponse");
       }
       if (typeof password !== "string") {
@@ -27177,15 +28607,15 @@ var require_sasl = __commonJS({
         throw new Error("SASL: SCRAM-SERVER-FIRST-MESSAGE: serverData must be a string");
       }
       const sv = parseServerFirstMessage(serverData);
-      if (!sv.nonce.startsWith(session2.clientNonce)) {
+      if (!sv.nonce.startsWith(session.clientNonce)) {
         throw new Error("SASL: SCRAM-SERVER-FIRST-MESSAGE: server nonce does not start with client nonce");
-      } else if (sv.nonce.length === session2.clientNonce.length) {
+      } else if (sv.nonce.length === session.clientNonce.length) {
         throw new Error("SASL: SCRAM-SERVER-FIRST-MESSAGE: server nonce is too short");
       }
-      const clientFirstMessageBare = "n=*,r=" + session2.clientNonce;
+      const clientFirstMessageBare = "n=*,r=" + session.clientNonce;
       const serverFirstMessage = "r=" + sv.nonce + ",s=" + sv.salt + ",i=" + sv.iteration;
       let channelBinding = stream ? "eSws" : "biws";
-      if (session2.mechanism === "SCRAM-SHA-256-PLUS") {
+      if (session.mechanism === "SCRAM-SHA-256-PLUS") {
         const peerCert = stream.getPeerCertificate().raw;
         let hashName = signatureAlgorithmHashFromCertificate(peerCert);
         if (hashName === "MD5" || hashName === "SHA-1") hashName = "SHA-256";
@@ -27203,19 +28633,19 @@ var require_sasl = __commonJS({
       const clientProof = xorBuffers(Buffer.from(clientKey), Buffer.from(clientSignature)).toString("base64");
       const serverKey = await crypto.hmacSha256(saltedPassword, "Server Key");
       const serverSignatureBytes = await crypto.hmacSha256(serverKey, authMessage);
-      session2.message = "SASLResponse";
-      session2.serverSignature = Buffer.from(serverSignatureBytes).toString("base64");
-      session2.response = clientFinalMessageWithoutProof + ",p=" + clientProof;
+      session.message = "SASLResponse";
+      session.serverSignature = Buffer.from(serverSignatureBytes).toString("base64");
+      session.response = clientFinalMessageWithoutProof + ",p=" + clientProof;
     }
-    function finalizeSession(session2, serverData) {
-      if (session2.message !== "SASLResponse") {
+    function finalizeSession(session, serverData) {
+      if (session.message !== "SASLResponse") {
         throw new Error("SASL: Last message was not SASLResponse");
       }
       if (typeof serverData !== "string") {
         throw new Error("SASL: SCRAM-SERVER-FINAL-MESSAGE: serverData must be a string");
       }
       const { serverSignature } = parseServerFinalMessage(serverData);
-      if (serverSignature !== session2.serverSignature) {
+      if (serverSignature !== session.serverSignature) {
         throw new Error("SASL: SCRAM-SERVER-FINAL-MESSAGE: server signature does not match");
       }
     }
@@ -27743,7 +29173,7 @@ var require_query2 = __commonJS({
     "use strict";
     var { EventEmitter } = require("events");
     var Result2 = require_result();
-    var utils = require_utils4();
+    var utils = require_utils3();
     var Query2 = class extends EventEmitter {
       constructor(config, values, callback) {
         super();
@@ -29306,7 +30736,7 @@ var require_helper = __commonJS({
 });
 
 // node_modules/pgpass/lib/index.js
-var require_lib6 = __commonJS({
+var require_lib3 = __commonJS({
   "node_modules/pgpass/lib/index.js"(exports2, module2) {
     "use strict";
     var path = require("path");
@@ -29331,14 +30761,14 @@ var require_client = __commonJS({
   "node_modules/pg/lib/client.js"(exports2, module2) {
     "use strict";
     var EventEmitter = require("events").EventEmitter;
-    var utils = require_utils4();
+    var utils = require_utils3();
     var sasl = require_sasl();
     var TypeOverrides2 = require_type_overrides();
     var ConnectionParameters = require_connection_parameters();
     var Query2 = require_query2();
     var defaults2 = require_defaults();
     var Connection2 = require_connection();
-    var crypto = require_utils5();
+    var crypto = require_utils4();
     var Client2 = class extends EventEmitter {
       constructor(config) {
         super();
@@ -29513,7 +30943,7 @@ var require_client = __commonJS({
           cb();
         } else {
           try {
-            const pgPass = require_lib6();
+            const pgPass = require_lib3();
             pgPass(this.connectionParameters, (pass) => {
               if (void 0 !== pass) {
                 this.connectionParameters.password = this.password = pass;
@@ -29932,7 +31362,7 @@ var require_pg_pool = __commonJS({
         this.options.maxLifetimeSeconds = this.options.maxLifetimeSeconds || 0;
         this.log = this.options.log || function() {
         };
-        this.Client = this.options.Client || Client2 || require_lib7().Client;
+        this.Client = this.options.Client || Client2 || require_lib4().Client;
         this.Promise = this.options.Promise || global.Promise;
         if (typeof this.options.idleTimeoutMillis === "undefined") {
           this.options.idleTimeoutMillis = 1e4;
@@ -30250,7 +31680,7 @@ var require_query3 = __commonJS({
     "use strict";
     var EventEmitter = require("events").EventEmitter;
     var util2 = require("util");
-    var utils = require_utils4();
+    var utils = require_utils3();
     var NativeQuery = module2.exports = function(config, values, callback) {
       EventEmitter.call(this);
       config = utils.normalizeQueryConfig(config, values, callback);
@@ -30634,18 +32064,18 @@ var require_native = __commonJS({
 });
 
 // node_modules/pg/lib/index.js
-var require_lib7 = __commonJS({
+var require_lib4 = __commonJS({
   "node_modules/pg/lib/index.js"(exports2, module2) {
     "use strict";
     var Client2 = require_client();
     var defaults2 = require_defaults();
     var Connection2 = require_connection();
     var Result2 = require_result();
-    var utils = require_utils4();
+    var utils = require_utils3();
     var Pool3 = require_pg_pool();
     var TypeOverrides2 = require_type_overrides();
     var { DatabaseError: DatabaseError2 } = require_dist();
-    var { escapeIdentifier: escapeIdentifier2, escapeLiteral: escapeLiteral2 } = require_utils4();
+    var { escapeIdentifier: escapeIdentifier2, escapeLiteral: escapeLiteral2 } = require_utils3();
     var poolFactory = (Client3) => {
       return class BoundPool extends Pool3 {
         constructor(options) {
@@ -30694,351 +32124,9 @@ var require_lib7 = __commonJS({
   }
 });
 
-// node_modules/connect-pg-simple/index.js
-var require_connect_pg_simple = __commonJS({
-  "node_modules/connect-pg-simple/index.js"(exports2, module2) {
-    "use strict";
-    var DEFAULT_PRUNE_INTERVAL_IN_SECONDS = 60 * 15;
-    var ONE_DAY = 86400;
-    var callbackifyPromiseResolution = (value, cb) => {
-      if (!cb) {
-        value.catch(() => {
-        });
-      } else {
-        value.then(
-          // eslint-disable-next-line unicorn/no-null
-          (ret) => process.nextTick(cb, null, ret),
-          (err) => process.nextTick(cb, err || new Error("Promise was rejected with falsy value"))
-        );
-      }
-    };
-    var currentTimestamp = () => Math.ceil(Date.now() / 1e3);
-    var escapePgIdentifier = (value) => value.replaceAll('"', '""');
-    module2.exports = function connectPgSimple2(session2) {
-      const Store = session2.Store || // @ts-ignore
-      session2.session.Store;
-      class PGStore extends Store {
-        /** @type {boolean} */
-        #createTableIfMissing;
-        /** @type {boolean} */
-        #disableTouch;
-        /** @type {typeof console.error} */
-        #errorLog;
-        /** @type {boolean} */
-        #ownsPg;
-        /** @type {*} */
-        #pgPromise;
-        /** @type {import('pg').Pool|undefined} */
-        #pool;
-        /** @type {false|number} */
-        #pruneSessionInterval;
-        /** @type {PGStorePruneDelayRandomizer|undefined} */
-        #pruneSessionRandomizedInterval;
-        /** @type {string|undefined} */
-        #schemaName;
-        /** @type {Promise<void>|undefined} */
-        #tableCreationPromise;
-        /** @type {string} */
-        #tableName;
-        /** @param {PGStoreOptions} options */
-        constructor(options = {}) {
-          super(options);
-          this.#schemaName = options.schemaName ? escapePgIdentifier(options.schemaName) : void 0;
-          this.#tableName = options.tableName ? escapePgIdentifier(options.tableName) : "session";
-          if (!this.#schemaName && this.#tableName.includes('"."')) {
-            console.warn('DEPRECATION WARNING: Schema should be provided through its dedicated "schemaName" option rather than through "tableName"');
-            this.#tableName = this.#tableName.replace(/^([^"]+)""\.""([^"]+)$/, '$1"."$2');
-          }
-          this.#createTableIfMissing = !!options.createTableIfMissing;
-          this.#tableCreationPromise = void 0;
-          this.ttl = options.ttl;
-          this.#disableTouch = !!options.disableTouch;
-          this.#errorLog = options.errorLog || console.error.bind(console);
-          if (options.pool !== void 0) {
-            this.#pool = options.pool;
-            this.#ownsPg = false;
-          } else if (options.pgPromise !== void 0) {
-            if (typeof options.pgPromise.any !== "function") {
-              throw new TypeError("`pgPromise` config must point to an existing and configured instance of pg-promise pointing at your database");
-            }
-            this.#pgPromise = options.pgPromise;
-            this.#ownsPg = false;
-          } else {
-            const conString = options.conString || process.env["DATABASE_URL"];
-            let conObject = options.conObject;
-            if (!conObject) {
-              conObject = {};
-              if (conString) {
-                conObject.connectionString = conString;
-              }
-            }
-            this.#pool = new (require_lib7()).Pool(conObject);
-            this.#pool.on("error", (err) => {
-              this.#errorLog("PG Pool error:", err);
-            });
-            this.#ownsPg = true;
-          }
-          if (options.pruneSessionInterval === false) {
-            this.#pruneSessionInterval = false;
-          } else {
-            this.#pruneSessionInterval = (options.pruneSessionInterval || DEFAULT_PRUNE_INTERVAL_IN_SECONDS) * 1e3;
-            if (options.pruneSessionRandomizedInterval !== false) {
-              this.#pruneSessionRandomizedInterval = options.pruneSessionRandomizedInterval || // Results in at least 50% of the specified interval and at most 150%. Makes it so that multiple instances doesn't all prune at the same time.
-              ((delay) => Math.ceil(delay / 2 + delay * Math.random()));
-            }
-          }
-        }
-        /**
-         * Ensures the session store table exists, creating it if its missing
-         *
-         * @access private
-         * @returns {Promise<void>}
-         */
-        async _rawEnsureSessionStoreTable() {
-          const quotedTable = this.quotedTable();
-          const res = await this._asyncQuery("SELECT to_regclass($1::text)", [quotedTable], true);
-          if (res && res["to_regclass"] === null) {
-            const pathModule = require("node:path");
-            const fs = require("node:fs").promises;
-            const tableDefString = await fs.readFile(pathModule.resolve(__dirname, "./table.sql"), "utf8");
-            const tableDefModified = tableDefString.replaceAll('"session"', quotedTable);
-            await this._asyncQuery(tableDefModified, [], true);
-          }
-        }
-        /**
-         * Ensures the session store table exists, creating it if its missing
-         *
-         * @access private
-         * @param {boolean|undefined} noTableCreation
-         * @returns {Promise<void>}
-         */
-        async _ensureSessionStoreTable(noTableCreation) {
-          if (noTableCreation || this.#createTableIfMissing === false) return;
-          if (!this.#tableCreationPromise) {
-            this.#tableCreationPromise = this._rawEnsureSessionStoreTable();
-          }
-          return this.#tableCreationPromise;
-        }
-        /**
-         * Closes the session store
-         *
-         * Currently only stops the automatic pruning, if any, from continuing
-         *
-         * @access public
-         * @returns {Promise<void>}
-         */
-        async close() {
-          this.closed = true;
-          this.#clearPruneTimer();
-          if (this.#ownsPg && this.#pool) {
-            await this.#pool.end();
-          }
-        }
-        #initPruneTimer() {
-          if (this.#pruneSessionInterval && !this.closed && !this.pruneTimer) {
-            const delay = this.#pruneSessionRandomizedInterval ? this.#pruneSessionRandomizedInterval(this.#pruneSessionInterval) : this.#pruneSessionInterval;
-            this.pruneTimer = setTimeout(
-              () => {
-                this.pruneSessions();
-              },
-              delay
-            );
-            this.pruneTimer.unref();
-          }
-        }
-        #clearPruneTimer() {
-          if (this.pruneTimer) {
-            clearTimeout(this.pruneTimer);
-            this.pruneTimer = void 0;
-          }
-        }
-        /**
-         * Does garbage collection for expired session in the database
-         *
-         * @param {SimpleErrorCallback} [fn] - standard Node.js callback called on completion
-         * @returns {void}
-         * @access public
-         */
-        pruneSessions(fn) {
-          this.query("DELETE FROM " + this.quotedTable() + " WHERE expire < to_timestamp($1)", [currentTimestamp()], (err) => {
-            if (fn && typeof fn === "function") {
-              return fn(err);
-            }
-            if (err) {
-              this.#errorLog("Failed to prune sessions:", err);
-            }
-            this.#clearPruneTimer();
-            this.#initPruneTimer();
-          });
-        }
-        /**
-         * Get the quoted table.
-         *
-         * @returns {string} the quoted schema + table for use in queries
-         * @access private
-         */
-        quotedTable() {
-          let result = '"' + this.#tableName + '"';
-          if (this.#schemaName) {
-            result = '"' + this.#schemaName + '".' + result;
-          }
-          return result;
-        }
-        /**
-         * Figure out when a session should expire
-         *
-         * @param {SessionObject} sess – the session object to store
-         * @returns {number} the unix timestamp, in seconds
-         * @access private
-         */
-        #getExpireTime(sess) {
-          let expire;
-          if (sess && sess.cookie && sess.cookie["expires"]) {
-            const expireDate = new Date(sess.cookie["expires"]);
-            expire = Math.ceil(expireDate.valueOf() / 1e3);
-          } else {
-            const ttl = this.ttl || ONE_DAY;
-            expire = Math.ceil(Date.now() / 1e3 + ttl);
-          }
-          return expire;
-        }
-        /**
-         * Query the database.
-         *
-         * @param {string} query - the database query to perform
-         * @param {any[]} [params] - the parameters of the query
-         * @param {boolean} [noTableCreation]
-         * @returns {Promise<PGStoreQueryResult|undefined>}
-         * @access private
-         */
-        async _asyncQuery(query, params, noTableCreation) {
-          await this._ensureSessionStoreTable(noTableCreation);
-          if (this.#pgPromise) {
-            const res = await this.#pgPromise.any(query, params);
-            return res && res[0] ? res[0] : void 0;
-          } else {
-            if (!this.#pool) throw new Error("Pool missing for some reason");
-            const res = await this.#pool.query(query, params);
-            return res && res.rows && res.rows[0] ? res.rows[0] : void 0;
-          }
-        }
-        /**
-         * Query the database.
-         *
-         * @param {string} query - the database query to perform
-         * @param {any[]|PGStoreQueryCallback} [params] - the parameters of the query or the callback function
-         * @param {PGStoreQueryCallback} [fn] - standard Node.js callback returning the resulting rows
-         * @param {boolean} [noTableCreation]
-         * @returns {void}
-         * @access private
-         */
-        query(query, params, fn, noTableCreation) {
-          let resolvedParams;
-          if (typeof params === "function") {
-            if (fn) throw new Error("Two callback functions set at once");
-            fn = params;
-            resolvedParams = [];
-          } else {
-            resolvedParams = params || [];
-          }
-          const result = this._asyncQuery(query, resolvedParams, noTableCreation);
-          callbackifyPromiseResolution(result, fn);
-        }
-        /**
-         * Attempt to fetch session by the given `sid`.
-         *
-         * @param {string} sid – the session id
-         * @param {(err: Error|null, firstRow?: PGStoreQueryResult) => void} fn – a standard Node.js callback returning the parsed session object
-         * @access public
-         */
-        get(sid, fn) {
-          this.#initPruneTimer();
-          this.query("SELECT sess FROM " + this.quotedTable() + " WHERE sid = $1 AND expire >= to_timestamp($2)", [sid, currentTimestamp()], (err, data) => {
-            if (err) {
-              return fn(err);
-            }
-            if (!data) {
-              return fn(null);
-            }
-            try {
-              return fn(null, typeof data["sess"] === "string" ? JSON.parse(data["sess"]) : data["sess"]);
-            } catch {
-              return this.destroy(sid, fn);
-            }
-          });
-        }
-        /**
-         * Commit the given `sess` object associated with the given `sid`.
-         *
-         * @param {string} sid – the session id
-         * @param {SessionObject} sess – the session object to store
-         * @param {SimpleErrorCallback} fn – a standard Node.js callback returning the parsed session object
-         * @access public
-         */
-        set(sid, sess, fn) {
-          this.#initPruneTimer();
-          const expireTime = this.#getExpireTime(sess);
-          const query = "INSERT INTO " + this.quotedTable() + " (sess, expire, sid) SELECT $1, to_timestamp($2), $3 ON CONFLICT (sid) DO UPDATE SET sess=$1, expire=to_timestamp($2) RETURNING sid";
-          this.query(
-            query,
-            [sess, expireTime, sid],
-            (err) => {
-              fn && fn(err);
-            }
-          );
-        }
-        /**
-         * Destroy the session associated with the given `sid`.
-         *
-         * @param {string} sid – the session id
-         * @param {SimpleErrorCallback} fn – a standard Node.js callback returning the parsed session object
-         * @access public
-         */
-        destroy(sid, fn) {
-          this.#initPruneTimer();
-          this.query(
-            "DELETE FROM " + this.quotedTable() + " WHERE sid = $1",
-            [sid],
-            (err) => {
-              fn && fn(err);
-            }
-          );
-        }
-        /**
-         * Touch the given session object associated with the given session ID.
-         *
-         * @param {string} sid – the session id
-         * @param {SessionObject} sess – the session object to store
-         * @param {SimpleErrorCallback} fn – a standard Node.js callback returning the parsed session object
-         * @access public
-         */
-        touch(sid, sess, fn) {
-          this.#initPruneTimer();
-          if (this.#disableTouch) {
-            fn && fn(null);
-            return;
-          }
-          const expireTime = this.#getExpireTime(sess);
-          this.query(
-            "UPDATE " + this.quotedTable() + " SET expire = to_timestamp($1) WHERE sid = $2 RETURNING sid",
-            [expireTime, sid],
-            (err) => {
-              fn && fn(err);
-            }
-          );
-        }
-      }
-      return PGStore;
-    };
-  }
-});
-
 // api/server.ts
 var import_express = __toESM(require_express2(), 1);
-var import_passport = __toESM(require_lib4(), 1);
-var import_passport_local = __toESM(require_lib5(), 1);
-var import_express_session = __toESM(require_express_session(), 1);
-var import_connect_pg_simple = __toESM(require_connect_pg_simple(), 1);
+var import_jsonwebtoken = __toESM(require_jsonwebtoken(), 1);
 var import_crypto = require("crypto");
 var import_util = require("util");
 
@@ -31915,11 +33003,11 @@ function isValidIP(ip, version2) {
   }
   return false;
 }
-function isValidJWT(jwt, alg) {
-  if (!jwtRegex.test(jwt))
+function isValidJWT(jwt2, alg) {
+  if (!jwtRegex.test(jwt2))
     return false;
   try {
-    const [header] = jwt.split(".");
+    const [header] = jwt2.split(".");
     const base64 = header.replace(/-/g, "+").replace(/_/g, "/").padEnd(header.length + (4 - header.length % 4) % 4, "=");
     const decoded = JSON.parse(atob(base64));
     if (typeof decoded !== "object" || decoded === null)
@@ -35103,7 +36191,7 @@ var z = /* @__PURE__ */ Object.freeze({
 });
 
 // node_modules/pg/esm/index.mjs
-var import_lib = __toESM(require_lib7(), 1);
+var import_lib = __toESM(require_lib4(), 1);
 var Client = import_lib.default.Client;
 var Pool = import_lib.default.Pool;
 var Connection = import_lib.default.Connection;
@@ -36602,9 +37690,9 @@ function isConfig(data) {
 
 // node_modules/drizzle-orm/pg-core/query-builders/delete.js
 var PgDeleteBase = class extends QueryPromise {
-  constructor(table, session2, dialect, withList) {
+  constructor(table, session, dialect, withList) {
     super();
-    this.session = session2;
+    this.session = session;
     this.dialect = dialect;
     this.config = { table, withList };
   }
@@ -38502,7 +39590,7 @@ var PgDialect = class {
   constructor(config) {
     this.casing = new CasingCache(config?.casing);
   }
-  async migrate(migrations, session2, config) {
+  async migrate(migrations, session, config) {
     const migrationsTable = typeof config === "string" ? "__drizzle_migrations" : config.migrationsTable ?? "__drizzle_migrations";
     const migrationsSchema = typeof config === "string" ? "drizzle" : config.migrationsSchema ?? "drizzle";
     const migrationTableCreate = sql`
@@ -38512,13 +39600,13 @@ var PgDialect = class {
 				created_at bigint
 			)
 		`;
-    await session2.execute(sql`CREATE SCHEMA IF NOT EXISTS ${sql.identifier(migrationsSchema)}`);
-    await session2.execute(migrationTableCreate);
-    const dbMigrations = await session2.all(
+    await session.execute(sql`CREATE SCHEMA IF NOT EXISTS ${sql.identifier(migrationsSchema)}`);
+    await session.execute(migrationTableCreate);
+    const dbMigrations = await session.all(
       sql`select id, hash, created_at from ${sql.identifier(migrationsSchema)}.${sql.identifier(migrationsTable)} order by created_at desc limit 1`
     );
     const lastDbMigration = dbMigrations[0];
-    await session2.transaction(async (tx) => {
+    await session.transaction(async (tx) => {
       for await (const migration of migrations) {
         if (!lastDbMigration || Number(lastDbMigration.created_at) < migration.folderMillis) {
           for (const stmt of migration.sql) {
@@ -39663,7 +40751,7 @@ var PgSelectQueryBuilderBase = class extends TypedQueryBuilder {
   isPartialSelect;
   session;
   dialect;
-  constructor({ table, fields, isPartialSelect, session: session2, dialect, withList, distinct }) {
+  constructor({ table, fields, isPartialSelect, session, dialect, withList, distinct }) {
     super();
     this.config = {
       withList,
@@ -39673,7 +40761,7 @@ var PgSelectQueryBuilderBase = class extends TypedQueryBuilder {
       setOperators: []
     };
     this.isPartialSelect = isPartialSelect;
-    this.session = session2;
+    this.session = session;
     this.dialect = dialect;
     this._ = {
       selectedFields: fields
@@ -40259,13 +41347,13 @@ var PgSelectBase = class extends PgSelectQueryBuilderBase {
   static [entityKind] = "PgSelect";
   /** @internal */
   _prepare(name) {
-    const { session: session2, config, dialect, joinsNotNullableMap, authToken } = this;
-    if (!session2) {
+    const { session, config, dialect, joinsNotNullableMap, authToken } = this;
+    if (!session) {
       throw new Error("Cannot execute a query on a query builder. Please use a database instance instead.");
     }
     return tracer.startActiveSpan("drizzle.prepareQuery", () => {
       const fieldsList = orderSelectedFields(config.fields);
-      const query = session2.prepareQuery(dialect.sqlToQuery(this.getSQL()), fieldsList, name, true);
+      const query = session.prepareQuery(dialect.sqlToQuery(this.getSQL()), fieldsList, name, true);
       query.joinsNotNullableMap = joinsNotNullableMap;
       return query.setToken(authToken);
     });
@@ -40414,9 +41502,9 @@ var QueryBuilder = class {
 
 // node_modules/drizzle-orm/pg-core/query-builders/insert.js
 var PgInsertBuilder = class {
-  constructor(table, session2, dialect, withList, overridingSystemValue_) {
+  constructor(table, session, dialect, withList, overridingSystemValue_) {
     this.table = table;
-    this.session = session2;
+    this.session = session;
     this.dialect = dialect;
     this.withList = withList;
     this.overridingSystemValue_ = overridingSystemValue_;
@@ -40467,9 +41555,9 @@ var PgInsertBuilder = class {
   }
 };
 var PgInsertBase = class extends QueryPromise {
-  constructor(table, values, session2, dialect, withList, select, overridingSystemValue_) {
+  constructor(table, values, session, dialect, withList, select, overridingSystemValue_) {
     super();
-    this.session = session2;
+    this.session = session;
     this.dialect = dialect;
     this.config = { table, values, withList, select, overridingSystemValue_ };
   }
@@ -40603,9 +41691,9 @@ var PgInsertBase = class extends QueryPromise {
 
 // node_modules/drizzle-orm/pg-core/query-builders/refresh-materialized-view.js
 var PgRefreshMaterializedView = class extends QueryPromise {
-  constructor(view, session2, dialect) {
+  constructor(view, session, dialect) {
     super();
-    this.session = session2;
+    this.session = session;
     this.dialect = dialect;
     this.config = { view };
   }
@@ -40657,9 +41745,9 @@ var PgRefreshMaterializedView = class extends QueryPromise {
 
 // node_modules/drizzle-orm/pg-core/query-builders/update.js
 var PgUpdateBuilder = class {
-  constructor(table, session2, dialect, withList) {
+  constructor(table, session, dialect, withList) {
     this.table = table;
-    this.session = session2;
+    this.session = session;
     this.dialect = dialect;
     this.withList = withList;
   }
@@ -40680,9 +41768,9 @@ var PgUpdateBuilder = class {
   }
 };
 var PgUpdateBase = class extends QueryPromise {
-  constructor(table, set, session2, dialect, withList) {
+  constructor(table, set, session, dialect, withList) {
     super();
-    this.session = session2;
+    this.session = session;
     this.dialect = dialect;
     this.config = { set, table, withList, joins: [] };
     this.tableName = getTableLikeName(table);
@@ -40916,14 +42004,14 @@ var PgCountBuilder = class _PgCountBuilder extends SQL {
 
 // node_modules/drizzle-orm/pg-core/query-builders/query.js
 var RelationalQueryBuilder = class {
-  constructor(fullSchema, schema, tableNamesMap, table, tableConfig, dialect, session2) {
+  constructor(fullSchema, schema, tableNamesMap, table, tableConfig, dialect, session) {
     this.fullSchema = fullSchema;
     this.schema = schema;
     this.tableNamesMap = tableNamesMap;
     this.table = table;
     this.tableConfig = tableConfig;
     this.dialect = dialect;
-    this.session = session2;
+    this.session = session;
   }
   static [entityKind] = "PgRelationalQueryBuilder";
   findMany(config) {
@@ -40954,7 +42042,7 @@ var RelationalQueryBuilder = class {
   }
 };
 var PgRelationalQuery = class extends QueryPromise {
-  constructor(fullSchema, schema, tableNamesMap, table, tableConfig, dialect, session2, config, mode) {
+  constructor(fullSchema, schema, tableNamesMap, table, tableConfig, dialect, session, config, mode) {
     super();
     this.fullSchema = fullSchema;
     this.schema = schema;
@@ -40962,7 +42050,7 @@ var PgRelationalQuery = class extends QueryPromise {
     this.table = table;
     this.tableConfig = tableConfig;
     this.dialect = dialect;
-    this.session = session2;
+    this.session = session;
     this.config = config;
     this.mode = mode;
   }
@@ -41058,19 +42146,19 @@ var PgRaw = class extends QueryPromise {
 
 // node_modules/drizzle-orm/pg-core/db.js
 var PgDatabase = class {
-  constructor(dialect, session2, schema) {
+  constructor(dialect, session, schema) {
     this.dialect = dialect;
-    this.session = session2;
+    this.session = session;
     this._ = schema ? {
       schema: schema.schema,
       fullSchema: schema.fullSchema,
       tableNamesMap: schema.tableNamesMap,
-      session: session2
+      session
     } : {
       schema: void 0,
       fullSchema: {},
       tableNamesMap: {},
-      session: session2
+      session
     };
     this.query = {};
     if (this._.schema) {
@@ -41082,7 +42170,7 @@ var PgDatabase = class {
           schema.fullSchema[tableName],
           columns,
           dialect,
-          session2
+          session
         );
       }
     }
@@ -41389,8 +42477,8 @@ var PgSession = class {
   }
 };
 var PgTransaction = class extends PgDatabase {
-  constructor(dialect, session2, schema, nestedIndex = 0) {
-    super(dialect, session2, schema);
+  constructor(dialect, session, schema, nestedIndex = 0) {
+    super(dialect, session, schema);
     this.schema = schema;
     this.nestedIndex = nestedIndex;
   }
@@ -41547,8 +42635,8 @@ var NodePgSession = class _NodePgSession extends PgSession {
     );
   }
   async transaction(transaction, config) {
-    const session2 = this.client instanceof Pool2 ? new _NodePgSession(await this.client.connect(), this.dialect, this.schema, this.options) : this;
-    const tx = new NodePgTransaction(this.dialect, session2, this.schema);
+    const session = this.client instanceof Pool2 ? new _NodePgSession(await this.client.connect(), this.dialect, this.schema, this.options) : this;
+    const tx = new NodePgTransaction(this.dialect, session, this.schema);
     await tx.execute(sql`begin${config ? sql` ${tx.getTransactionConfigSQL(config)}` : void 0}`);
     try {
       const result = await transaction(tx);
@@ -41559,7 +42647,7 @@ var NodePgSession = class _NodePgSession extends PgSession {
       throw error;
     } finally {
       if (this.client instanceof Pool2) {
-        session2.client.release();
+        session.client.release();
       }
     }
   }
@@ -41628,8 +42716,8 @@ function construct(client, config = {}) {
     };
   }
   const driver = new NodePgDriver(client, dialect, { logger });
-  const session2 = driver.createSession(schema);
-  const db2 = new NodePgDatabase(dialect, session2, schema);
+  const session = driver.createSession(schema);
+  const db2 = new NodePgDatabase(dialect, session, schema);
   db2.$client = client;
   return db2;
 }
@@ -41915,6 +43003,14 @@ app.use((req, res, next) => {
   next();
 });
 var scryptAsync = (0, import_util.promisify)(import_crypto.scrypt);
+function getJwtSecret() {
+  const secret = process.env.SESSION_SECRET || process.env.JWT_SECRET;
+  if (!secret && true) {
+    throw new Error("JWT_SECRET or SESSION_SECRET environment variable is required in production");
+  }
+  return secret || "fleek-dev-secret-local-only";
+}
+var JWT_SECRET = getJwtSecret();
 var pool = new Pool({
   connectionString: process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
@@ -42039,56 +43135,45 @@ async function comparePasswords(supplied, stored) {
   const suppliedBuf = await scryptAsync(supplied, salt, 64);
   return (0, import_crypto.timingSafeEqual)(hashedBuf, suppliedBuf);
 }
+function generateToken(user) {
+  return import_jsonwebtoken.default.sign(
+    { id: user.id, username: user.username, businessName: user.businessName },
+    JWT_SECRET,
+    { expiresIn: "30d" }
+  );
+}
+function verifyToken(token) {
+  try {
+    return import_jsonwebtoken.default.verify(token, JWT_SECRET);
+  } catch {
+    return null;
+  }
+}
 app.use(import_express.default.json());
 app.use(import_express.default.urlencoded({ extended: false }));
-var PgSession2 = (0, import_connect_pg_simple.default)(import_express_session.default);
-app.use((0, import_express_session.default)({
-  store: new PgSession2({
-    pool,
-    tableName: "session",
-    createTableIfMissing: true,
-    errorLog: console.error
-  }),
-  secret: process.env.SESSION_SECRET || "secret",
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: true,
-    httpOnly: true,
-    maxAge: 30 * 24 * 60 * 60 * 1e3,
-    sameSite: "lax"
-  }
-}));
-app.use(import_passport.default.initialize());
-app.use(import_passport.default.session());
-import_passport.default.use(
-  new import_passport_local.Strategy(async (username, password, done) => {
-    try {
-      const user = await storage.getUserByUsername(username);
-      if (!user || !await comparePasswords(password, user.password)) {
-        return done(null, false);
-      } else {
-        return done(null, user);
-      }
-    } catch (err) {
-      return done(err);
-    }
-  })
-);
-import_passport.default.serializeUser((user, done) => done(null, user.id));
-import_passport.default.deserializeUser(async (id, done) => {
-  try {
-    const user = await storage.getUser(id);
-    done(null, user);
-  } catch (err) {
-    done(err);
-  }
-});
 var requireAuth = (req, res, next) => {
-  if (req.isAuthenticated()) {
-    return next();
+  const authHeader = req.headers.authorization;
+  let token;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.substring(7);
+  } else {
+    const cookies = req.headers.cookie;
+    if (cookies) {
+      const tokenCookie = cookies.split(";").find((c) => c.trim().startsWith("token="));
+      if (tokenCookie) {
+        token = tokenCookie.split("=")[1];
+      }
+    }
   }
-  res.status(401).json({ message: "Unauthorized" });
+  if (!token) {
+    return res.status(401).json({ message: "Unauthorized - No token provided" });
+  }
+  const decoded = verifyToken(token);
+  if (!decoded) {
+    return res.status(401).json({ message: "Unauthorized - Invalid token" });
+  }
+  req.user = decoded;
+  next();
 };
 app.post("/api/register", async (req, res, next) => {
   try {
@@ -42102,9 +43187,13 @@ app.post("/api/register", async (req, res, next) => {
       ...input,
       password: hashedPassword
     });
-    req.login(user, (err) => {
-      if (err) return next(err);
-      res.status(201).json(user);
+    const token = generateToken(user);
+    res.setHeader("Set-Cookie", `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}${true ? "; Secure" : ""}`);
+    res.status(201).json({
+      id: user.id,
+      username: user.username,
+      businessName: user.businessName,
+      token
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -42116,29 +43205,42 @@ app.post("/api/register", async (req, res, next) => {
     next(err);
   }
 });
-app.post("/api/login", (req, res, next) => {
-  const passportLogin = import_passport.default.authenticate("local", (err, user, info) => {
-    if (err) return next(err);
-    if (!user) return res.status(401).json({ message: "Invalid credentials" });
-    req.login(user, (err2) => {
-      if (err2) return next(err2);
-      res.status(200).json(user);
+app.post("/api/login", async (req, res, next) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password required" });
+    }
+    const user = await storage.getUserByUsername(username);
+    if (!user || !await comparePasswords(password, user.password)) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+    const token = generateToken(user);
+    res.setHeader("Set-Cookie", `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}${true ? "; Secure" : ""}`);
+    res.status(200).json({
+      id: user.id,
+      username: user.username,
+      businessName: user.businessName,
+      token
     });
-  });
-  passportLogin(req, res, next);
-});
-app.post("/api/logout", (req, res, next) => {
-  req.logout((err) => {
-    if (err) return next(err);
-    res.sendStatus(200);
-  });
-});
-app.get("/api/user", (req, res) => {
-  if (req.isAuthenticated()) {
-    res.json(req.user);
-  } else {
-    res.status(401).json({ message: "Not authenticated" });
+  } catch (err) {
+    next(err);
   }
+});
+app.post("/api/logout", (req, res) => {
+  res.setHeader("Set-Cookie", "token=; Path=/; HttpOnly; Max-Age=0");
+  res.sendStatus(200);
+});
+app.get("/api/user", requireAuth, async (req, res) => {
+  const user = await storage.getUser(req.user.id);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  res.json({
+    id: user.id,
+    username: user.username,
+    businessName: user.businessName
+  });
 });
 app.post("/api/forgot-password", async (req, res, next) => {
   try {
@@ -42200,8 +43302,8 @@ app.get("/api/stats", requireAuth, async (req, res) => {
 });
 app.get("/api/feedbacks", requireAuth, async (req, res) => {
   const days = req.query.days ? parseInt(req.query.days) : void 0;
-  const feedbacks2 = await storage.getFeedbacks(req.user.id, days);
-  res.json(feedbacks2);
+  const feedbacksList = await storage.getFeedbacks(req.user.id, days);
+  res.json(feedbacksList);
 });
 app.delete("/api/feedbacks", requireAuth, async (req, res) => {
   await storage.deleteUserFeedbacks(req.user.id);
@@ -42236,6 +43338,7 @@ app.get("/api/business/:id", async (req, res) => {
   res.json({ businessName: business.businessName });
 });
 app.use((err, _req, res, _next) => {
+  console.error("Server error:", err);
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal Server Error";
   res.status(status).json({ message });
@@ -42524,7 +43627,6 @@ accepts/index.js:
    *)
 
 cookie/index.js:
-cookie/index.js:
   (*!
    * cookie
    * Copyright(c) 2012-2014 Roman Shtylman
@@ -42545,73 +43647,6 @@ serve-static/index.js:
    * Copyright(c) 2010 Sencha Inc.
    * Copyright(c) 2011 TJ Holowaychuk
    * Copyright(c) 2014-2016 Douglas Christopher Wilson
-   * MIT Licensed
-   *)
-
-on-headers/index.js:
-  (*!
-   * on-headers
-   * Copyright(c) 2014 Douglas Christopher Wilson
-   * MIT Licensed
-   *)
-
-random-bytes/index.js:
-  (*!
-   * random-bytes
-   * Copyright(c) 2016 Douglas Christopher Wilson
-   * MIT Licensed
-   *)
-
-uid-safe/index.js:
-  (*!
-   * uid-safe
-   * Copyright(c) 2014 Jonathan Ong
-   * Copyright(c) 2015-2017 Douglas Christopher Wilson
-   * MIT Licensed
-   *)
-
-express-session/session/cookie.js:
-  (*!
-   * Connect - session - Cookie
-   * Copyright(c) 2010 Sencha Inc.
-   * Copyright(c) 2011 TJ Holowaychuk
-   * MIT Licensed
-   *)
-  (*!
-   * Prototype.
-   *)
-
-express-session/session/session.js:
-  (*!
-   * Connect - session - Session
-   * Copyright(c) 2010 Sencha Inc.
-   * Copyright(c) 2011 TJ Holowaychuk
-   * MIT Licensed
-   *)
-
-express-session/session/store.js:
-  (*!
-   * Connect - session - Store
-   * Copyright(c) 2010 Sencha Inc.
-   * Copyright(c) 2011 TJ Holowaychuk
-   * MIT Licensed
-   *)
-
-express-session/session/memory.js:
-  (*!
-   * express-session
-   * Copyright(c) 2010 Sencha Inc.
-   * Copyright(c) 2011 TJ Holowaychuk
-   * Copyright(c) 2015 Douglas Christopher Wilson
-   * MIT Licensed
-   *)
-
-express-session/index.js:
-  (*!
-   * express-session
-   * Copyright(c) 2010 Sencha Inc.
-   * Copyright(c) 2011 TJ Holowaychuk
-   * Copyright(c) 2014-2015 Douglas Christopher Wilson
    * MIT Licensed
    *)
 */

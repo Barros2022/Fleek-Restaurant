@@ -1,13 +1,22 @@
-import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
-import session from "express-session";
+import { Express, Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User } from "@shared/schema";
 
 const scryptAsync = promisify(scrypt);
+
+// In production, require a real secret. In development, allow a fallback.
+function getJwtSecret(): string {
+  const secret = process.env.SESSION_SECRET || process.env.JWT_SECRET;
+  if (!secret && process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET or SESSION_SECRET environment variable is required in production');
+  }
+  return secret || 'fleek-dev-secret-local-only';
+}
+
+const JWT_SECRET = getJwtSecret();
 
 async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
@@ -22,46 +31,53 @@ async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
-export function setupAuth(app: Express) {
-  const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "secret",
-    resave: false,
-    saveUninitialized: false,
-    store: undefined, // Memory store by default
-  };
-
-  if (app.get("env") === "production") {
-    app.set("trust proxy", 1);
-  }
-
-  app.use(session(sessionSettings));
-  app.use(passport.initialize());
-  app.use(passport.session());
-
-  passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        const user = await storage.getUserByUsername(username);
-        if (!user || !(await comparePasswords(password, user.password))) {
-          return done(null, false);
-        } else {
-          return done(null, user);
-        }
-      } catch (err) {
-        return done(err);
-      }
-    }),
+function generateToken(user: User): string {
+  return jwt.sign(
+    { id: user.id, username: user.username, businessName: user.businessName },
+    JWT_SECRET,
+    { expiresIn: '30d' }
   );
+}
 
-  passport.serializeUser((user, done) => done(null, (user as User).id));
-  passport.deserializeUser(async (id: number, done) => {
-    try {
-      const user = await storage.getUser(id);
-      done(null, user);
-    } catch (err) {
-      done(err);
+function verifyToken(token: string): { id: number; username: string; businessName: string } | null {
+  try {
+    return jwt.verify(token, JWT_SECRET) as { id: number; username: string; businessName: string };
+  } catch {
+    return null;
+  }
+}
+
+// Middleware to check JWT from Authorization header or cookie
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  let token: string | undefined;
+  
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7);
+  } else {
+    const cookies = req.headers.cookie;
+    if (cookies) {
+      const tokenCookie = cookies.split(';').find((c: string) => c.trim().startsWith('token='));
+      if (tokenCookie) {
+        token = tokenCookie.split('=')[1];
+      }
     }
-  });
+  }
+  
+  if (!token) {
+    return res.status(401).json({ message: "Unauthorized - No token provided" });
+  }
+  
+  const decoded = verifyToken(token);
+  if (!decoded) {
+    return res.status(401).json({ message: "Unauthorized - Invalid token" });
+  }
+  
+  (req as any).user = decoded;
+  next();
+}
 
-  return { hashPassword };
+export function setupAuth(app: Express) {
+  // No session/passport setup needed - we use stateless JWT
+  return { hashPassword, comparePasswords, generateToken, verifyToken };
 }

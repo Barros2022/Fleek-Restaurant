@@ -1,8 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
-import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
-import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
+import jwt from "jsonwebtoken";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { z } from "zod";
@@ -21,6 +18,7 @@ import { createInsertSchema } from "drizzle-zod";
 
 const app = express();
 
+// CORS middleware
 app.use((req, res, next) => {
   const origin = req.headers.origin || '*';
   res.header('Access-Control-Allow-Origin', origin);
@@ -36,6 +34,17 @@ app.use((req, res, next) => {
 
 const scryptAsync = promisify(scrypt);
 
+// In production, require a real secret. In development, allow a fallback.
+function getJwtSecret(): string {
+  const secret = process.env.SESSION_SECRET || process.env.JWT_SECRET;
+  if (!secret && process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET or SESSION_SECRET environment variable is required in production');
+  }
+  return secret || 'fleek-dev-secret-local-only';
+}
+
+const JWT_SECRET = getJwtSecret();
+
 const pool = new Pool({
   connectionString: process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
@@ -43,6 +52,7 @@ const pool = new Pool({
 
 const db = drizzle(pool);
 
+// Schema definitions
 const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
@@ -80,6 +90,7 @@ type InsertUser = z.infer<typeof insertUserSchema>;
 type Feedback = typeof feedbacks.$inferSelect;
 type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
 
+// Storage layer
 const storage = {
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -187,6 +198,7 @@ const storage = {
   }
 };
 
+// Password utilities
 async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
@@ -200,63 +212,59 @@ async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
+// JWT utilities
+function generateToken(user: User): string {
+  return jwt.sign(
+    { id: user.id, username: user.username, businessName: user.businessName },
+    JWT_SECRET,
+    { expiresIn: '30d' }
+  );
+}
+
+function verifyToken(token: string): { id: number; username: string; businessName: string } | null {
+  try {
+    return jwt.verify(token, JWT_SECRET) as { id: number; username: string; businessName: string };
+  } catch {
+    return null;
+  }
+}
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-const PgSession = connectPgSimple(session);
-app.use(session({
-  store: new PgSession({
-    pool: pool,
-    tableName: 'session',
-    createTableIfMissing: true,
-    errorLog: console.error
-  }),
-  secret: process.env.SESSION_SECRET || "secret",
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === "production",
-    httpOnly: true,
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-    sameSite: 'lax'
-  }
-}));
-
-app.use(passport.initialize());
-app.use(passport.session());
-
-passport.use(
-  new LocalStrategy(async (username, password, done) => {
-    try {
-      const user = await storage.getUserByUsername(username);
-      if (!user || !(await comparePasswords(password, user.password))) {
-        return done(null, false);
-      } else {
-        return done(null, user);
-      }
-    } catch (err) {
-      return done(err);
-    }
-  }),
-);
-
-passport.serializeUser((user, done) => done(null, (user as User).id));
-passport.deserializeUser(async (id: number, done) => {
-  try {
-    const user = await storage.getUser(id);
-    done(null, user);
-  } catch (err) {
-    done(err);
-  }
-});
-
+// JWT Auth middleware - checks both cookie and Authorization header
 const requireAuth = (req: any, res: any, next: any) => {
-  if (req.isAuthenticated()) {
-    return next();
+  // Try Authorization header first
+  const authHeader = req.headers.authorization;
+  let token: string | undefined;
+  
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7);
+  } else {
+    // Try cookie
+    const cookies = req.headers.cookie;
+    if (cookies) {
+      const tokenCookie = cookies.split(';').find((c: string) => c.trim().startsWith('token='));
+      if (tokenCookie) {
+        token = tokenCookie.split('=')[1];
+      }
+    }
   }
-  res.status(401).json({ message: "Unauthorized" });
+  
+  if (!token) {
+    return res.status(401).json({ message: "Unauthorized - No token provided" });
+  }
+  
+  const decoded = verifyToken(token);
+  if (!decoded) {
+    return res.status(401).json({ message: "Unauthorized - Invalid token" });
+  }
+  
+  req.user = decoded;
+  next();
 };
 
+// Auth routes
 app.post("/api/register", async (req, res, next) => {
   try {
     const existingUser = await storage.getUserByUsername(req.body.username);
@@ -271,9 +279,16 @@ app.post("/api/register", async (req, res, next) => {
       password: hashedPassword,
     });
 
-    req.login(user, (err) => {
-      if (err) return next(err);
-      res.status(201).json(user);
+    const token = generateToken(user);
+    
+    // Set cookie for browser
+    res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
+    
+    res.status(201).json({ 
+      id: user.id,
+      username: user.username,
+      businessName: user.businessName,
+      token 
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -286,33 +301,53 @@ app.post("/api/register", async (req, res, next) => {
   }
 });
 
-app.post("/api/login", (req, res, next) => {
-  const passportLogin = passport.authenticate("local", (err: any, user: any, info: any) => {
-    if (err) return next(err);
-    if (!user) return res.status(401).json({ message: "Invalid credentials" });
-    req.login(user, (err) => {
-      if (err) return next(err);
-      res.status(200).json(user);
+app.post("/api/login", async (req, res, next) => {
+  try {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password required" });
+    }
+    
+    const user = await storage.getUserByUsername(username);
+    if (!user || !(await comparePasswords(password, user.password))) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+    
+    const token = generateToken(user);
+    
+    // Set cookie for browser
+    res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
+    
+    res.status(200).json({ 
+      id: user.id,
+      username: user.username,
+      businessName: user.businessName,
+      token 
     });
-  });
-  passportLogin(req, res, next);
-});
-
-app.post("/api/logout", (req, res, next) => {
-  req.logout((err) => {
-    if (err) return next(err);
-    res.sendStatus(200);
-  });
-});
-
-app.get("/api/user", (req, res) => {
-  if (req.isAuthenticated()) {
-    res.json(req.user);
-  } else {
-    res.status(401).json({ message: "Not authenticated" });
+  } catch (err) {
+    next(err);
   }
 });
 
+app.post("/api/logout", (req, res) => {
+  res.setHeader('Set-Cookie', 'token=; Path=/; HttpOnly; Max-Age=0');
+  res.sendStatus(200);
+});
+
+app.get("/api/user", requireAuth, async (req, res) => {
+  const user = await storage.getUser((req as any).user.id);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  res.json({
+    id: user.id,
+    username: user.username,
+    businessName: user.businessName
+  });
+});
+
+// Password reset routes
 app.post("/api/forgot-password", async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -378,23 +413,25 @@ app.post("/api/reset-password", async (req, res, next) => {
   }
 });
 
+// Protected routes
 app.get("/api/stats", requireAuth, async (req, res) => {
   const days = req.query.days ? parseInt(req.query.days as string) : undefined;
-  const stats = await storage.getStats((req.user as any).id, days);
+  const stats = await storage.getStats((req as any).user.id, days);
   res.json(stats);
 });
 
 app.get("/api/feedbacks", requireAuth, async (req, res) => {
   const days = req.query.days ? parseInt(req.query.days as string) : undefined;
-  const feedbacks = await storage.getFeedbacks((req.user as any).id, days);
-  res.json(feedbacks);
+  const feedbacksList = await storage.getFeedbacks((req as any).user.id, days);
+  res.json(feedbacksList);
 });
 
 app.delete("/api/feedbacks", requireAuth, async (req, res) => {
-  await storage.deleteUserFeedbacks((req.user as any).id);
+  await storage.deleteUserFeedbacks((req as any).user.id);
   res.json({ message: "All feedbacks deleted" });
 });
 
+// Public routes
 app.post("/api/feedbacks", async (req, res) => {
   try {
     const input = insertFeedbackSchema.parse(req.body);
@@ -429,7 +466,9 @@ app.get("/api/business/:id", async (req, res) => {
   res.json({ businessName: business.businessName });
 });
 
+// Error handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error("Server error:", err);
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal Server Error";
   res.status(status).json({ message });

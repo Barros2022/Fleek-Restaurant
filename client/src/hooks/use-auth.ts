@@ -1,6 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type InsertUser } from "@shared/routes";
+import { api } from "@shared/routes";
+import { type InsertUser } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+
+// Helper to get auth headers
+function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem('fleek_token');
+  if (token) {
+    return { 'Authorization': `Bearer ${token}` };
+  }
+  return {};
+}
 
 export function useAuth() {
   const queryClient = useQueryClient();
@@ -9,8 +19,14 @@ export function useAuth() {
   const { data: user, isLoading } = useQuery({
     queryKey: [api.auth.user.path],
     queryFn: async () => {
-      const res = await fetch(api.auth.user.path);
-      if (res.status === 401) return null;
+      const res = await fetch(api.auth.user.path, {
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
+      if (res.status === 401) {
+        localStorage.removeItem('fleek_token');
+        return null;
+      }
       if (!res.ok) throw new Error("Failed to fetch user");
       return api.auth.user.responses[200].parse(await res.json());
     },
@@ -22,6 +38,7 @@ export function useAuth() {
       const res = await fetch(api.auth.login.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify(credentials),
       });
       
@@ -32,7 +49,12 @@ export function useAuth() {
         throw new Error("Falha ao entrar");
       }
       
-      return api.auth.login.responses[200].parse(await res.json());
+      const data = await res.json();
+      // Store token in localStorage as fallback
+      if (data.token) {
+        localStorage.setItem('fleek_token', data.token);
+      }
+      return api.auth.login.responses[200].parse(data);
     },
     onSuccess: (data) => {
       queryClient.setQueryData([api.auth.user.path], data);
@@ -55,6 +77,7 @@ export function useAuth() {
       const res = await fetch(api.auth.register.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify(userData),
       });
 
@@ -66,7 +89,12 @@ export function useAuth() {
         throw new Error("Falha ao criar conta");
       }
 
-      return api.auth.register.responses[201].parse(await res.json());
+      const data = await res.json();
+      // Store token in localStorage as fallback
+      if (data.token) {
+        localStorage.setItem('fleek_token', data.token);
+      }
+      return api.auth.register.responses[201].parse(data);
     },
     onSuccess: (data) => {
       queryClient.setQueryData([api.auth.user.path], data);
@@ -86,7 +114,8 @@ export function useAuth() {
 
   const logout = useMutation({
     mutationFn: async () => {
-      await fetch(api.auth.logout.path, { method: "POST" });
+      localStorage.removeItem('fleek_token');
+      await fetch(api.auth.logout.path, { method: "POST", credentials: 'include' });
     },
     onSuccess: () => {
       queryClient.setQueryData([api.auth.user.path], null);

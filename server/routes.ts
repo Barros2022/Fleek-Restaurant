@@ -1,8 +1,8 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
-import { setupAuth } from "./auth";
+import { type Server } from "http";
+import { setupAuth, requireAuth } from "./auth";
 import { storage } from "./storage";
-import { api, errorSchemas } from "@shared/routes";
+import { api } from "@shared/routes";
 import { z } from "zod";
 import { randomBytes } from "crypto";
 
@@ -10,7 +10,7 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  const { hashPassword } = setupAuth(app);
+  const { hashPassword, comparePasswords, generateToken } = setupAuth(app);
 
   // Auth Routes
   app.post(api.auth.register.path, async (req, res, next) => {
@@ -33,13 +33,16 @@ export async function registerRoutes(
       });
       console.log("[REGISTER] User created successfully:", user.id, user.username);
 
-      req.login(user, (err) => {
-        if (err) {
-          console.log("[REGISTER] Login after registration failed:", err);
-          return next(err);
-        }
-        console.log("[REGISTER] User logged in after registration");
-        res.status(201).json(user);
+      const token = generateToken(user);
+      
+      // Set cookie for browser
+      res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
+      
+      res.status(201).json({
+        id: user.id,
+        username: user.username,
+        businessName: user.businessName,
+        token
       });
     } catch (err) {
       console.log("[REGISTER] Error during registration:", err);
@@ -53,32 +56,50 @@ export async function registerRoutes(
     }
   });
 
-  app.post(api.auth.login.path, (req, res, next) => {
-    const passportLogin = passport.authenticate("local", (err: any, user: any, info: any) => {
-      if (err) return next(err);
-      if (!user) return res.status(401).json({ message: "Invalid credentials" });
-      req.login(user, (err) => {
-        if (err) return next(err);
-        res.status(200).json(user);
+  app.post(api.auth.login.path, async (req, res, next) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password required" });
+      }
+      
+      const user = await storage.getUserByUsername(username);
+      if (!user || !(await comparePasswords(password, user.password))) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      const token = generateToken(user);
+      
+      // Set cookie for browser
+      res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
+      
+      res.status(200).json({
+        id: user.id,
+        username: user.username,
+        businessName: user.businessName,
+        token
       });
-    });
-    // @ts-ignore
-    passportLogin(req, res, next);
-  });
-
-  app.post(api.auth.logout.path, (req, res, next) => {
-    req.logout((err) => {
-      if (err) return next(err);
-      res.sendStatus(200);
-    });
-  });
-
-  app.get(api.auth.user.path, (req, res) => {
-    if (req.isAuthenticated()) {
-      res.json(req.user);
-    } else {
-      res.status(401).json({ message: "Not authenticated" });
+    } catch (err) {
+      next(err);
     }
+  });
+
+  app.post(api.auth.logout.path, (req, res) => {
+    res.setHeader('Set-Cookie', 'token=; Path=/; HttpOnly; Max-Age=0');
+    res.sendStatus(200);
+  });
+
+  app.get(api.auth.user.path, requireAuth, async (req, res) => {
+    const user = await storage.getUser((req as any).user.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json({
+      id: user.id,
+      username: user.username,
+      businessName: user.businessName
+    });
   });
 
   // Password Reset Routes
@@ -156,31 +177,23 @@ export async function registerRoutes(
     }
   });
 
-  // Protected Routes Middleware
-  const requireAuth = (req: any, res: any, next: any) => {
-    if (req.isAuthenticated()) {
-      return next();
-    }
-    res.status(401).json({ message: "Unauthorized" });
-  };
-
   // Stats
   app.get(api.feedbacks.stats.path, requireAuth, async (req, res) => {
     const days = req.query.days ? parseInt(req.query.days as string) : undefined;
-    const stats = await storage.getStats((req.user as any).id, days);
+    const stats = await storage.getStats((req as any).user.id, days);
     res.json(stats);
   });
 
   // List Feedbacks
   app.get(api.feedbacks.list.path, requireAuth, async (req, res) => {
     const days = req.query.days ? parseInt(req.query.days as string) : undefined;
-    const feedbacks = await storage.getFeedbacks((req.user as any).id, days);
+    const feedbacks = await storage.getFeedbacks((req as any).user.id, days);
     res.json(feedbacks);
   });
 
   // Delete All Feedbacks
   app.delete(api.feedbacks.deleteAll.path, requireAuth, async (req, res) => {
-    await storage.deleteUserFeedbacks((req.user as any).id);
+    await storage.deleteUserFeedbacks((req as any).user.id);
     res.json({ message: "All feedbacks deleted" });
   });
 
@@ -225,5 +238,3 @@ export async function registerRoutes(
 
   return httpServer;
 }
-
-import passport from "passport";
