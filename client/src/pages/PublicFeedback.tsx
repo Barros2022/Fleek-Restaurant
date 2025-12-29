@@ -1,96 +1,74 @@
 import { useRoute } from "wouter";
-import { useBusinessInfo, useSubmitFeedback } from "@/hooks/use-feedbacks";
+import { useBusinessInfo } from "@/hooks/use-feedbacks";
 import { Loader2, CheckCircle2, Utensils, Users, Clock, Sparkles, MessageSquare } from "lucide-react";
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { StarRating } from "@/components/ui/star-rating";
 import { NPSRating } from "@/components/ui/nps-rating";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { z } from "zod";
-
-const feedbackFormSchema = z.object({
-  userId: z.number(),
-  npsScore: z.union([z.number().min(0).max(10), z.null()]).refine((val) => val !== null, {
-    message: "Por favor, selecione uma nota"
-  }),
-  ratingFood: z.number().min(1, "Avaliacao obrigatoria"),
-  ratingService: z.number().min(1, "Avaliacao obrigatoria"),
-  ratingWaitTime: z.number().min(1, "Avaliacao obrigatoria"),
-  ratingAmbiance: z.number().min(1, "Avaliacao obrigatoria"),
-  comment: z.string().optional().nullable(),
-});
-
-type FeedbackFormInput = {
-  userId: number;
-  npsScore: number | null;
-  ratingFood: number;
-  ratingService: number;
-  ratingWaitTime: number;
-  ratingAmbiance: number;
-  comment?: string | null;
-};
+import { useToast } from "@/hooks/use-toast";
 
 export default function PublicFeedback() {
   const [, params] = useRoute("/feedback/:userId");
   const userId = params ? parseInt(params.userId) : 0;
+  const { toast } = useToast();
   
   const { data: business, isLoading: isBusinessLoading } = useBusinessInfo(userId);
-  const submitFeedback = useSubmitFeedback();
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [npsScore, setNpsScore] = useState<number | null>(null);
+  const [ratingFood, setRatingFood] = useState(0);
+  const [ratingService, setRatingService] = useState(0);
+  const [ratingWaitTime, setRatingWaitTime] = useState(0);
+  const [ratingAmbiance, setRatingAmbiance] = useState(0);
+  const [comment, setComment] = useState("");
 
-  const { control, handleSubmit, register, formState: { errors }, watch } = useForm<FeedbackFormInput>({
-    resolver: zodResolver(feedbackFormSchema),
-    defaultValues: {
-      userId: userId,
-      ratingFood: 0,
-      ratingService: 0,
-      ratingWaitTime: 0,
-      ratingAmbiance: 0,
-      npsScore: null,
-      comment: ""
-    }
-  });
-
-  const watchedValues = watch();
   const completedSteps = [
-    watchedValues.npsScore !== null,
-    (watchedValues.ratingFood ?? 0) > 0,
-    (watchedValues.ratingService ?? 0) > 0,
-    (watchedValues.ratingWaitTime ?? 0) > 0,
-    (watchedValues.ratingAmbiance ?? 0) > 0,
+    npsScore !== null,
+    ratingFood > 0,
+    ratingService > 0,
+    ratingWaitTime > 0,
+    ratingAmbiance > 0,
   ].filter(Boolean).length;
 
-  const onSubmit = (data: FeedbackFormInput) => {
-    console.log("[DEBUG] Form submitted with data:", data);
-    console.log("[DEBUG] Form errors:", errors);
-    
-    if (data.npsScore === null) {
-      console.log("[DEBUG] npsScore is null, returning");
+  const handleSubmit = async () => {
+    if (npsScore === null) {
+      toast({ title: "Selecione uma nota NPS", variant: "destructive" });
       return;
     }
+    if (ratingFood === 0 || ratingService === 0 || ratingWaitTime === 0 || ratingAmbiance === 0) {
+      toast({ title: "Preencha todas as avaliacoes", variant: "destructive" });
+      return;
+    }
+
+    setIsSubmitting(true);
     
-    const payload = {
-      userId: data.userId,
-      npsScore: data.npsScore,
-      ratingFood: data.ratingFood,
-      ratingService: data.ratingService,
-      ratingWaitTime: data.ratingWaitTime,
-      ratingAmbiance: data.ratingAmbiance,
-      comment: data.comment || undefined,
-    };
-    
-    console.log("[DEBUG] Sending payload:", payload);
-    
-    submitFeedback.mutate(payload, {
-      onSuccess: () => {
-        console.log("[DEBUG] Submission successful!");
-        setIsSubmitted(true);
-      },
-      onError: (error) => {
-        console.log("[DEBUG] Submission error:", error);
+    try {
+      const res = await fetch("/api/feedbacks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          npsScore,
+          ratingFood,
+          ratingService,
+          ratingWaitTime,
+          ratingAmbiance,
+          comment: comment || null,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to submit");
       }
-    });
+
+      setIsSubmitted(true);
+      toast({ title: "Feedback enviado!", description: "Obrigado!" });
+    } catch (error) {
+      toast({ title: "Erro ao enviar", description: "Tente novamente.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isBusinessLoading) {
@@ -185,30 +163,18 @@ export default function PublicFeedback() {
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-6 pb-32">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <div className="space-y-5">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
             className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"
           >
-            <Controller
-              name="npsScore"
-              control={control}
-              rules={{ required: "Por favor, selecione uma nota" }}
-              render={({ field }) => (
-                <NPSRating 
-                  value={field.value ?? null} 
-                  onChange={field.onChange} 
-                  label="O quanto voce nos recomendaria?"
-                />
-              )}
+            <NPSRating 
+              value={npsScore} 
+              onChange={setNpsScore} 
+              label="O quanto voce nos recomendaria?"
             />
-            {errors.npsScore && (
-              <p className="text-red-500 text-sm text-center mt-3 bg-red-50 py-2 px-3 rounded-lg">
-                {errors.npsScore.message}
-              </p>
-            )}
           </motion.div>
 
           <motion.div 
@@ -225,19 +191,7 @@ export default function PublicFeedback() {
                   </div>
                   <span className="text-sm font-medium text-slate-700">Comida</span>
                 </div>
-                <Controller
-                  name="ratingFood"
-                  control={control}
-                  rules={{ min: { value: 1, message: "Obrigatorio" } }}
-                  render={({ field }) => (
-                    <StarRating 
-                      value={field.value ?? 0} 
-                      onChange={field.onChange}
-                      compact
-                    />
-                  )}
-                />
-                {errors.ratingFood && <p className="text-red-500 text-xs mt-2">Obrigatorio</p>}
+                <StarRating value={ratingFood} onChange={setRatingFood} compact />
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
@@ -247,19 +201,7 @@ export default function PublicFeedback() {
                   </div>
                   <span className="text-sm font-medium text-slate-700">Atendimento</span>
                 </div>
-                <Controller
-                  name="ratingService"
-                  control={control}
-                  rules={{ min: { value: 1, message: "Obrigatorio" } }}
-                  render={({ field }) => (
-                    <StarRating 
-                      value={field.value ?? 0} 
-                      onChange={field.onChange}
-                      compact
-                    />
-                  )}
-                />
-                {errors.ratingService && <p className="text-red-500 text-xs mt-2">Obrigatorio</p>}
+                <StarRating value={ratingService} onChange={setRatingService} compact />
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
@@ -269,19 +211,7 @@ export default function PublicFeedback() {
                   </div>
                   <span className="text-sm font-medium text-slate-700">Tempo</span>
                 </div>
-                <Controller
-                  name="ratingWaitTime"
-                  control={control}
-                  rules={{ min: { value: 1, message: "Obrigatorio" } }}
-                  render={({ field }) => (
-                    <StarRating 
-                      value={field.value ?? 0} 
-                      onChange={field.onChange}
-                      compact
-                    />
-                  )}
-                />
-                {errors.ratingWaitTime && <p className="text-red-500 text-xs mt-2">Obrigatorio</p>}
+                <StarRating value={ratingWaitTime} onChange={setRatingWaitTime} compact />
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
@@ -291,19 +221,7 @@ export default function PublicFeedback() {
                   </div>
                   <span className="text-sm font-medium text-slate-700">Ambiente</span>
                 </div>
-                <Controller
-                  name="ratingAmbiance"
-                  control={control}
-                  rules={{ min: { value: 1, message: "Obrigatorio" } }}
-                  render={({ field }) => (
-                    <StarRating 
-                      value={field.value ?? 0} 
-                      onChange={field.onChange}
-                      compact
-                    />
-                  )}
-                />
-                {errors.ratingAmbiance && <p className="text-red-500 text-xs mt-2">Obrigatorio</p>}
+                <StarRating value={ratingAmbiance} onChange={setRatingAmbiance} compact />
               </div>
             </div>
           </motion.div>
@@ -321,33 +239,27 @@ export default function PublicFeedback() {
               <span className="text-sm font-medium text-slate-700">Comentario (opcional)</span>
             </div>
             <textarea
-              {...register("comment")}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
               data-testid="input-comment"
               className="w-full p-4 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 focus:outline-none transition-all resize-none text-slate-700 placeholder:text-slate-400"
               placeholder="Conte sua experiencia..."
               rows={3}
             />
           </motion.div>
-        </form>
+        </div>
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-white/0 pt-8">
         <div className="max-w-lg mx-auto">
           <button
             type="button"
-            onClick={() => {
-              console.log("[DEBUG] Button clicked!");
-              console.log("[DEBUG] Current form values:", watchedValues);
-              console.log("[DEBUG] Current errors:", errors);
-              handleSubmit(onSubmit, (errors) => {
-                console.log("[DEBUG] Validation errors:", errors);
-              })();
-            }}
-            disabled={submitFeedback.isPending}
+            onClick={handleSubmit}
+            disabled={isSubmitting}
             data-testid="button-submit-feedback"
             className="w-full py-4 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-lg font-semibold rounded-2xl shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/30 active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
           >
-            {submitFeedback.isPending ? (
+            {isSubmitting ? (
               <Loader2 className="animate-spin w-5 h-5" />
             ) : (
               "Enviar Avaliacao"
