@@ -35,25 +35,17 @@ export function useSubmitFeedback() {
   
   return useMutation({
     mutationFn: async (data: InsertFeedback) => {
-      console.log("[useSubmitFeedback] Sending data:", data);
-      
       const res = await fetch(api.feedbacks.submit.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
 
-      console.log("[useSubmitFeedback] Response status:", res.status);
-
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        console.log("[useSubmitFeedback] Error response:", errorData);
-        throw new Error(errorData.message || "Failed to submit feedback");
+        throw new Error("Failed to submit feedback");
       }
 
-      const result = await res.json();
-      console.log("[useSubmitFeedback] Success response:", result);
-      return result;
+      return api.feedbacks.submit.responses[201].parse(await res.json());
     },
     onSuccess: () => {
       toast({
@@ -61,8 +53,7 @@ export function useSubmitFeedback() {
         description: "Obrigado por compartilhar sua opinião.",
       });
     },
-    onError: (error) => {
-      console.log("[useSubmitFeedback] Mutation error:", error);
+    onError: () => {
       toast({
         title: "Erro ao enviar",
         description: "Tente novamente mais tarde.",

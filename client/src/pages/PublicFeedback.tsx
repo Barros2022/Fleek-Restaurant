@@ -1,211 +1,190 @@
-import { useState, useEffect } from "react";
-import { useParams } from "wouter";
-import { Star, Loader2, CheckCircle2 } from "lucide-react";
+import { useRoute } from "wouter";
+import { useBusinessInfo, useSubmitFeedback } from "@/hooks/use-feedbacks";
+import { Loader2, Send } from "lucide-react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertFeedbackSchema } from "@shared/schema";
+import { StarRating } from "@/components/ui/star-rating";
+import { NPSRating } from "@/components/ui/nps-rating";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import type { InsertFeedback } from "@shared/schema";
 
 export default function PublicFeedback() {
-  const { userId } = useParams<{ userId: string }>();
+  const [, params] = useRoute("/feedback/:userId");
+  const userId = params ? parseInt(params.userId) : 0;
   
-  const [loading, setLoading] = useState(true);
-  const [business, setBusiness] = useState<{ businessName: string } | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState("");
-  
-  const [nps, setNps] = useState<number | null>(null);
-  const [food, setFood] = useState(0);
-  const [service, setService] = useState(0);
-  const [waitTime, setWaitTime] = useState(0);
-  const [ambiance, setAmbiance] = useState(0);
-  const [comment, setComment] = useState("");
+  const { data: business, isLoading: isBusinessLoading } = useBusinessInfo(userId);
+  const submitFeedback = useSubmitFeedback();
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
-  useEffect(() => {
-    if (userId) {
-      fetch(`/api/business/${userId}`)
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          setBusiness(data);
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
+  const { control, handleSubmit, register, formState: { errors } } = useForm<InsertFeedback>({
+    resolver: zodResolver(insertFeedbackSchema),
+    defaultValues: {
+      userId: userId,
+      ratingFood: 0,
+      ratingService: 0,
+      ratingWaitTime: 0,
+      ratingAmbiance: 0,
+      npsScore: undefined, // Let user select
+      comment: ""
     }
-  }, [userId]);
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("SUBMIT CALLED", { nps, food, service, waitTime, ambiance });
-    setError("");
-    
-    if (nps === null) {
-      setError("Selecione uma nota de 0 a 10");
-      return;
-    }
-    if (food === 0 || service === 0 || waitTime === 0 || ambiance === 0) {
-      setError("Preencha todas as avaliacoes");
-      return;
-    }
-
-    setSubmitting(true);
-    
-    try {
-      const response = await fetch("/api/feedbacks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: Number(userId),
-          npsScore: nps,
-          ratingFood: food,
-          ratingService: service,
-          ratingWaitTime: waitTime,
-          ratingAmbiance: ambiance,
-          comment: comment || null,
-        }),
-      });
-
-      if (response.ok) {
-        setSubmitted(true);
-      } else {
-        setError("Erro ao enviar. Tente novamente.");
-      }
-    } catch {
-      setError("Erro de conexao.");
-    } finally {
-      setSubmitting(false);
-    }
+  const onSubmit = (data: InsertFeedback) => {
+    submitFeedback.mutate(data, {
+      onSuccess: () => setIsSubmitted(true)
+    });
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="animate-spin w-8 h-8 text-violet-600" />
-      </div>
-    );
+  if (isBusinessLoading) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
   }
 
   if (!business) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-        <div className="text-center">
-          <h1 className="text-xl font-bold text-slate-900 mb-2">Empresa nao encontrada</h1>
-          <p className="text-slate-500">Link incorreto.</p>
+        <div className="text-center max-w-md">
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">Empresa não encontrada</h1>
+          <p className="text-slate-500">O link que você acessou parece estar incorreto.</p>
         </div>
       </div>
     );
   }
 
-  if (submitted) {
+  if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-emerald-50 flex flex-col items-center justify-center p-6">
-        <div className="text-center space-y-4">
-          <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-10 h-10 text-white" />
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="text-center max-w-md space-y-6"
+        >
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Send className="w-10 h-10 text-green-600" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Obrigado!</h1>
-          <p className="text-slate-600">Sua avaliacao foi enviada.</p>
-        </div>
+          <h1 className="text-3xl font-bold font-display text-slate-900">Obrigado!</h1>
+          <p className="text-lg text-slate-600">
+            Agradecemos pelo seu tempo. Seu feedback ajuda {business.businessName} a melhorar a cada dia.
+          </p>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white p-6 text-center">
-        <h1 className="text-xl font-bold">{business.businessName}</h1>
-        <p className="text-violet-200 text-sm mt-1">Avalie sua experiencia</p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="p-4 pb-32 max-w-lg mx-auto space-y-6">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-            {error}
-          </div>
-        )}
-
-        <div className="bg-white rounded-xl p-5 shadow-sm">
-          <h2 className="font-semibold text-slate-800 mb-4 text-center">
-            De 0 a 10, qual a chance de recomendar?
-          </h2>
-          <div className="grid grid-cols-11 gap-1">
-            {[0,1,2,3,4,5,6,7,8,9,10].map(n => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setNps(n)}
-                className={`aspect-square rounded-lg text-sm font-medium transition-all ${
-                  nps === n
-                    ? "bg-violet-600 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
+    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-2xl mx-auto">
+        <div className="text-center mb-10">
+          <h1 className="text-3xl font-bold font-display text-slate-900">{business.businessName}</h1>
+          <p className="text-slate-500 mt-2">Queremos ouvir sua opinião para te atender melhor.</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <StarRating label="Comida" value={food} onChange={setFood} />
-          <StarRating label="Atendimento" value={service} onChange={setService} />
-          <StarRating label="Tempo de espera" value={waitTime} onChange={setWaitTime} />
-          <StarRating label="Ambiente" value={ambiance} onChange={setAmbiance} />
-        </div>
-
-        <div className="bg-white rounded-xl p-5 shadow-sm">
-          <label className="block font-medium text-slate-700 mb-2">
-            Comentario (opcional)
-          </label>
-          <textarea
-            value={comment}
-            onChange={e => setComment(e.target.value)}
-            className="w-full p-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none resize-none"
-            placeholder="Conte sua experiencia..."
-            rows={3}
-          />
-        </div>
-
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t z-50">
-          <div className="max-w-lg mx-auto">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-4 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="animate-spin w-5 h-5" />
-                  Enviando...
-                </>
-              ) : (
-                "Enviar Avaliacao"
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* NPS Section */}
+          <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+            <Controller
+              name="npsScore"
+              control={control}
+              rules={{ required: "Por favor, selecione uma nota" }}
+              render={({ field }) => (
+                <NPSRating 
+                  value={field.value} 
+                  onChange={field.onChange} 
+                  label="De 0 a 10, o quanto você recomendaria este estabelecimento para um amigo?"
+                />
               )}
-            </button>
-          </div>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function StarRating({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
-  return (
-    <div className="bg-white rounded-xl p-4 shadow-sm">
-      <p className="text-sm font-medium text-slate-700 mb-2 text-center">{label}</p>
-      <div className="flex justify-center gap-1">
-        {[1,2,3,4,5].map(n => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => { console.log("STAR CLICKED", label, n); onChange(n); }}
-            className="p-1"
-          >
-            <Star
-              className={`w-7 h-7 ${
-                n <= value
-                  ? "fill-amber-400 text-amber-400"
-                  : "fill-slate-200 text-slate-200"
-              }`}
             />
+            {errors.npsScore && <p className="text-red-500 text-sm text-center mt-2">{errors.npsScore.message}</p>}
+          </div>
+
+          {/* Star Ratings Grid */}
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <Controller
+                name="ratingFood"
+                control={control}
+                rules={{ min: { value: 1, message: "Avaliação obrigatória" } }}
+                render={({ field }) => (
+                  <StarRating 
+                    value={field.value} 
+                    onChange={field.onChange} 
+                    label="Como você avalia a qualidade da comida?" 
+                  />
+                )}
+              />
+              {errors.ratingFood && <p className="text-red-500 text-sm mt-1">Obrigatório</p>}
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <Controller
+                name="ratingService"
+                control={control}
+                rules={{ min: { value: 1, message: "Avaliação obrigatória" } }}
+                render={({ field }) => (
+                  <StarRating 
+                    value={field.value} 
+                    onChange={field.onChange} 
+                    label="Como você avalia o atendimento?" 
+                  />
+                )}
+              />
+              {errors.ratingService && <p className="text-red-500 text-sm mt-1">Obrigatório</p>}
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <Controller
+                name="ratingWaitTime"
+                control={control}
+                rules={{ min: { value: 1, message: "Avaliação obrigatória" } }}
+                render={({ field }) => (
+                  <StarRating 
+                    value={field.value} 
+                    onChange={field.onChange} 
+                    label="O tempo de espera foi satisfatório?" 
+                  />
+                )}
+              />
+              {errors.ratingWaitTime && <p className="text-red-500 text-sm mt-1">Obrigatório</p>}
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <Controller
+                name="ratingAmbiance"
+                control={control}
+                rules={{ min: { value: 1, message: "Avaliação obrigatória" } }}
+                render={({ field }) => (
+                  <StarRating 
+                    value={field.value} 
+                    onChange={field.onChange} 
+                    label="Como você avalia limpeza e ambiente?" 
+                  />
+                )}
+              />
+              {errors.ratingAmbiance && <p className="text-red-500 text-sm mt-1">Obrigatório</p>}
+            </div>
+          </div>
+
+          {/* Comment Section */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Se quiser, conte o que mais gostou ou o que podemos melhorar (opcional)
+            </label>
+            <textarea
+              {...register("comment")}
+              className="w-full p-4 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all resize-none h-32"
+              placeholder="Escreva seu comentário aqui..."
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitFeedback.isPending}
+            className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white text-lg font-bold rounded-xl shadow-lg shadow-slate-900/20 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+          >
+            {submitFeedback.isPending ? <Loader2 className="animate-spin" /> : "Enviar Feedback"}
           </button>
-        ))}
+        </form>
       </div>
     </div>
   );
