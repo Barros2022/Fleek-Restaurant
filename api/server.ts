@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { z } from "zod";
@@ -19,6 +20,7 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 
 const app = express();
+const PgSession = connectPgSimple(session);
 
 app.use((req, res, next) => {
   const origin = req.headers.origin || '*';
@@ -203,6 +205,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 app.use(session({
+  store: new PgSession({
+    pool: pool,
+    tableName: 'session',
+    createTableIfMissing: true
+  }),
   secret: process.env.SESSION_SECRET || "secret",
   resave: false,
   saveUninitialized: false,
