@@ -20,7 +20,6 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 
 const app = express();
-const PgSession = connectPgSimple(session);
 
 app.use((req, res, next) => {
   const origin = req.headers.origin || '*';
@@ -204,11 +203,13 @@ async function comparePasswords(supplied: string, stored: string) {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+const PgSession = connectPgSimple(session);
 app.use(session({
   store: new PgSession({
     pool: pool,
     tableName: 'session',
-    createTableIfMissing: true
+    createTableIfMissing: true,
+    errorLog: console.error
   }),
   secret: process.env.SESSION_SECRET || "secret",
   resave: false,

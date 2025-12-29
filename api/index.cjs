@@ -41903,7 +41903,6 @@ var createInsertSchema = (entity, refine) => {
 
 // api/server.ts
 var app = (0, import_express.default)();
-var PgSession2 = (0, import_connect_pg_simple.default)(import_express_session.default);
 app.use((req, res, next) => {
   const origin = req.headers.origin || "*";
   res.header("Access-Control-Allow-Origin", origin);
@@ -42042,11 +42041,13 @@ async function comparePasswords(supplied, stored) {
 }
 app.use(import_express.default.json());
 app.use(import_express.default.urlencoded({ extended: false }));
+var PgSession2 = (0, import_connect_pg_simple.default)(import_express_session.default);
 app.use((0, import_express_session.default)({
   store: new PgSession2({
     pool,
     tableName: "session",
-    createTableIfMissing: true
+    createTableIfMissing: true,
+    errorLog: console.error
   }),
   secret: process.env.SESSION_SECRET || "secret",
   resave: false,
