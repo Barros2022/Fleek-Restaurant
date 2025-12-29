@@ -38,8 +38,6 @@ export default function PublicFeedback() {
     e.preventDefault();
     e.stopPropagation();
     
-    alert("Botao clicado! nps=" + nps + " food=" + food);
-    
     setError("");
     
     if (nps === null) {
@@ -206,7 +204,7 @@ export default function PublicFeedback() {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-white/0 pt-8">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-white/0 pt-8 z-50">
         <div className="max-w-lg mx-auto">
           <button
             type="button"
