@@ -32,39 +32,62 @@ export default function PublicFeedback() {
   ].filter(Boolean).length;
 
   const handleSubmit = async () => {
+    console.log("=== SUBMIT CLICKED ===");
+    console.log("npsScore:", npsScore);
+    console.log("ratingFood:", ratingFood);
+    console.log("ratingService:", ratingService);
+    console.log("ratingWaitTime:", ratingWaitTime);
+    console.log("ratingAmbiance:", ratingAmbiance);
+    console.log("comment:", comment);
+    console.log("userId:", userId);
+    
     if (npsScore === null) {
+      console.log("VALIDATION FAILED: npsScore is null");
       toast({ title: "Selecione uma nota NPS", variant: "destructive" });
       return;
     }
     if (ratingFood === 0 || ratingService === 0 || ratingWaitTime === 0 || ratingAmbiance === 0) {
+      console.log("VALIDATION FAILED: one of the ratings is 0");
       toast({ title: "Preencha todas as avaliacoes", variant: "destructive" });
       return;
     }
 
+    console.log("VALIDATION PASSED, submitting...");
     setIsSubmitting(true);
     
     try {
+      const payload = {
+        userId,
+        npsScore,
+        ratingFood,
+        ratingService,
+        ratingWaitTime,
+        ratingAmbiance,
+        comment: comment || null,
+      };
+      console.log("Payload:", JSON.stringify(payload));
+      
       const res = await fetch("/api/feedbacks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          npsScore,
-          ratingFood,
-          ratingService,
-          ratingWaitTime,
-          ratingAmbiance,
-          comment: comment || null,
-        }),
+        body: JSON.stringify(payload),
       });
 
+      console.log("Response status:", res.status);
+      
       if (!res.ok) {
+        const errorText = await res.text();
+        console.log("Error response:", errorText);
         throw new Error("Failed to submit");
       }
 
+      const result = await res.json();
+      console.log("Success result:", result);
+      
       setIsSubmitted(true);
       toast({ title: "Feedback enviado!", description: "Obrigado!" });
     } catch (error) {
+      console.log("Catch error:", error);
       toast({ title: "Erro ao enviar", description: "Tente novamente.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
