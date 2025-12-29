@@ -1,295 +1,171 @@
 import { useRoute } from "wouter";
-import { useBusinessInfo } from "@/hooks/use-feedbacks";
-import { Loader2, CheckCircle2, Utensils, Users, Clock, Sparkles, MessageSquare } from "lucide-react";
-import { StarRating } from "@/components/ui/star-rating";
-import { NPSRating } from "@/components/ui/nps-rating";
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
 
 export default function PublicFeedback() {
   const [, params] = useRoute("/feedback/:userId");
   const userId = params ? parseInt(params.userId) : 0;
-  const { toast } = useToast();
   
-  const { data: business, isLoading: isBusinessLoading } = useBusinessInfo(userId);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [business, setBusiness] = useState<{ businessName: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
   
-  const [npsScore, setNpsScore] = useState<number | null>(null);
-  const [ratingFood, setRatingFood] = useState(0);
-  const [ratingService, setRatingService] = useState(0);
-  const [ratingWaitTime, setRatingWaitTime] = useState(0);
-  const [ratingAmbiance, setRatingAmbiance] = useState(0);
+  const [nps, setNps] = useState<number | null>(null);
+  const [food, setFood] = useState(0);
+  const [service, setService] = useState(0);
+  const [waitTime, setWaitTime] = useState(0);
+  const [ambiance, setAmbiance] = useState(0);
   const [comment, setComment] = useState("");
 
-  const completedSteps = [
-    npsScore !== null,
-    ratingFood > 0,
-    ratingService > 0,
-    ratingWaitTime > 0,
-    ratingAmbiance > 0,
-  ].filter(Boolean).length;
+  useEffect(() => {
+    fetch(`/api/business/${userId}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        setBusiness(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [userId]);
 
-  const handleSubmit = async () => {
-    console.log("=== SUBMIT CLICKED ===");
-    console.log("npsScore:", npsScore);
-    console.log("ratingFood:", ratingFood);
-    console.log("ratingService:", ratingService);
-    console.log("ratingWaitTime:", ratingWaitTime);
-    console.log("ratingAmbiance:", ratingAmbiance);
-    console.log("comment:", comment);
-    console.log("userId:", userId);
+  async function submit() {
+    setError("");
     
-    if (npsScore === null) {
-      console.log("VALIDATION FAILED: npsScore is null");
-      toast({ title: "Selecione uma nota NPS", variant: "destructive" });
+    if (nps === null) {
+      setError("Selecione uma nota de 0 a 10");
       return;
     }
-    if (ratingFood === 0 || ratingService === 0 || ratingWaitTime === 0 || ratingAmbiance === 0) {
-      console.log("VALIDATION FAILED: one of the ratings is 0");
-      toast({ title: "Preencha todas as avaliacoes", variant: "destructive" });
+    if (food === 0 || service === 0 || waitTime === 0 || ambiance === 0) {
+      setError("Preencha todas as estrelas");
       return;
     }
 
-    console.log("VALIDATION PASSED, submitting...");
-    setIsSubmitting(true);
+    setSubmitting(true);
     
     try {
-      const payload = {
-        userId,
-        npsScore,
-        ratingFood,
-        ratingService,
-        ratingWaitTime,
-        ratingAmbiance,
-        comment: comment || null,
-      };
-      console.log("Payload:", JSON.stringify(payload));
-      
       const res = await fetch("/api/feedbacks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          userId,
+          npsScore: nps,
+          ratingFood: food,
+          ratingService: service,
+          ratingWaitTime: waitTime,
+          ratingAmbiance: ambiance,
+          comment: comment || null,
+        }),
       });
 
-      console.log("Response status:", res.status);
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.log("Error response:", errorText);
-        throw new Error("Failed to submit");
+      if (res.ok) {
+        setSubmitted(true);
+      } else {
+        setError("Erro ao enviar. Tente novamente.");
       }
-
-      const result = await res.json();
-      console.log("Success result:", result);
-      
-      setIsSubmitted(true);
-      toast({ title: "Feedback enviado!", description: "Obrigado!" });
-    } catch (error) {
-      console.log("Catch error:", error);
-      toast({ title: "Erro ao enviar", description: "Tente novamente.", variant: "destructive" });
+    } catch {
+      setError("Erro de conexao. Tente novamente.");
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
-  };
+  }
 
-  if (isBusinessLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 to-white">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex flex-col items-center gap-4"
-        >
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-            <Loader2 className="animate-spin text-white w-8 h-8" />
-          </div>
-          <p className="text-slate-500 text-sm">Carregando...</p>
-        </motion.div>
-      </div>
-    );
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
   }
 
   if (!business) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 to-white p-4">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center max-w-md"
-        >
-          <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-4xl">?</span>
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">Empresa nao encontrada</h1>
-          <p className="text-slate-500">O link que voce acessou parece estar incorreto.</p>
-        </motion.div>
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center">Empresa nao encontrada</div>;
   }
 
-  if (isSubmitted) {
+  if (submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white flex flex-col items-center justify-center p-6">
-        <motion.div 
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", duration: 0.6 }}
-          className="text-center max-w-md space-y-6"
-        >
-          <motion.div 
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: "spring" }}
-            className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-emerald-200"
-          >
-            <CheckCircle2 className="w-12 h-12 text-white" />
-          </motion.div>
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold text-slate-900">Obrigado!</h1>
-            <p className="text-lg text-slate-600">
-              Seu feedback e muito importante para nos. Agradecemos por ajudar <span className="font-semibold text-slate-800">{business.businessName}</span> a melhorar.
-            </p>
-          </div>
-        </motion.div>
+      <div className="min-h-screen flex items-center justify-center bg-green-50">
+        <div className="text-center p-8">
+          <div className="text-6xl mb-4">✓</div>
+          <h1 className="text-2xl font-bold text-green-700">Obrigado!</h1>
+          <p className="text-green-600 mt-2">Seu feedback foi enviado com sucesso.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-white">
-      <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200/50 px-4 py-3">
-        <div className="max-w-lg mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
-              {business.businessName.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h1 className="font-bold text-slate-900 leading-tight">{business.businessName}</h1>
-              <p className="text-xs text-slate-500">Avaliacao rapida</p>
-            </div>
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-md mx-auto">
+        <h1 className="text-2xl font-bold text-center mb-6">{business.businessName}</h1>
+        
+        {error && (
+          <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-center">
+            {error}
           </div>
-          <div className="flex items-center gap-1.5">
-            {[...Array(5)].map((_, i) => (
-              <div
-                key={i}
-                className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                  i < completedSteps 
-                    ? "bg-gradient-to-r from-violet-500 to-purple-500 scale-110" 
-                    : "bg-slate-200"
+        )}
+
+        <div className="bg-white p-4 rounded-lg shadow mb-4">
+          <p className="font-medium mb-3">De 0 a 10, o quanto voce nos recomendaria?</p>
+          <div className="flex flex-wrap gap-2 justify-center">
+            {[0,1,2,3,4,5,6,7,8,9,10].map(n => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setNps(n)}
+                className={`w-10 h-10 rounded-lg font-bold ${
+                  nps === n 
+                    ? "bg-purple-600 text-white" 
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
-              />
+              >
+                {n}
+              </button>
             ))}
           </div>
         </div>
-      </div>
 
-      <div className="max-w-lg mx-auto px-4 py-6 pb-32">
-        <div className="space-y-5">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"
-          >
-            <NPSRating 
-              value={npsScore} 
-              onChange={setNpsScore} 
-              label="O quanto voce nos recomendaria?"
-            />
-          </motion.div>
-
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="space-y-3"
-          >
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
-                    <Utensils className="w-4 h-4 text-orange-600" />
-                  </div>
-                  <span className="text-sm font-medium text-slate-700">Comida</span>
-                </div>
-                <StarRating value={ratingFood} onChange={setRatingFood} compact />
-              </div>
-
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                    <Users className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <span className="text-sm font-medium text-slate-700">Atendimento</span>
-                </div>
-                <StarRating value={ratingService} onChange={setRatingService} compact />
-              </div>
-
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                    <Clock className="w-4 h-4 text-amber-600" />
-                  </div>
-                  <span className="text-sm font-medium text-slate-700">Tempo</span>
-                </div>
-                <StarRating value={ratingWaitTime} onChange={setRatingWaitTime} compact />
-              </div>
-
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-purple-600" />
-                  </div>
-                  <span className="text-sm font-medium text-slate-700">Ambiente</span>
-                </div>
-                <StarRating value={ratingAmbiance} onChange={setRatingAmbiance} compact />
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
-                <MessageSquare className="w-4 h-4 text-slate-600" />
-              </div>
-              <span className="text-sm font-medium text-slate-700">Comentario (opcional)</span>
-            </div>
-            <textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              data-testid="input-comment"
-              className="w-full p-4 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 focus:outline-none transition-all resize-none text-slate-700 placeholder:text-slate-400"
-              placeholder="Conte sua experiencia..."
-              rows={3}
-            />
-          </motion.div>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <StarBox label="Comida" value={food} onChange={setFood} />
+          <StarBox label="Atendimento" value={service} onChange={setService} />
+          <StarBox label="Tempo" value={waitTime} onChange={setWaitTime} />
+          <StarBox label="Ambiente" value={ambiance} onChange={setAmbiance} />
         </div>
-      </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-white/0 pt-8">
-        <div className="max-w-lg mx-auto">
+        <div className="bg-white p-4 rounded-lg shadow mb-4">
+          <p className="font-medium mb-2">Comentario (opcional)</p>
+          <textarea
+            value={comment}
+            onChange={e => setComment(e.target.value)}
+            className="w-full p-3 border rounded-lg"
+            rows={3}
+            placeholder="Conte sua experiencia..."
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={submit}
+          disabled={submitting}
+          className="w-full py-4 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg disabled:opacity-50"
+        >
+          {submitting ? "Enviando..." : "Enviar Avaliacao"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StarBox({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="bg-white p-4 rounded-lg shadow">
+      <p className="font-medium mb-2 text-sm">{label}</p>
+      <div className="flex gap-1">
+        {[1,2,3,4,5].map(n => (
           <button
+            key={n}
             type="button"
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            data-testid="button-submit-feedback"
-            className="w-full py-4 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-lg font-semibold rounded-2xl shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/30 active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+            onClick={() => onChange(n)}
+            className="text-2xl"
           >
-            {isSubmitting ? (
-              <Loader2 className="animate-spin w-5 h-5" />
-            ) : (
-              "Enviar Avaliacao"
-            )}
+            {n <= value ? "★" : "☆"}
           </button>
-          <p className="text-center text-xs text-slate-400 mt-3">Sua opiniao nos ajuda a melhorar</p>
-        </div>
+        ))}
       </div>
     </div>
   );
