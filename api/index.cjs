@@ -41860,7 +41860,7 @@ app.delete("/api/feedbacks", requireAuth, async (req, res) => {
   await storage.deleteUserFeedbacks(req.user.id);
   res.json({ message: "All feedbacks deleted" });
 });
-app.post("/api/feedback", async (req, res) => {
+app.post("/api/feedbacks", async (req, res) => {
   try {
     const input = insertFeedbackSchema.parse(req.body);
     const business = await storage.getUser(input.userId);
