@@ -38,6 +38,8 @@ export default function PublicFeedback() {
     e.preventDefault();
     e.stopPropagation();
     
+    alert("Botao clicado! nps=" + nps + " food=" + food);
+    
     setError("");
     
     if (nps === null) {
