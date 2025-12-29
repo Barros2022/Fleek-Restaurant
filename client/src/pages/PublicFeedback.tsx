@@ -11,10 +11,7 @@ import { z } from "zod";
 
 const feedbackFormSchema = z.object({
   userId: z.number(),
-  npsScore: z.number({ 
-    required_error: "Por favor, selecione uma nota",
-    invalid_type_error: "Por favor, selecione uma nota" 
-  }).min(0).max(10).nullable().refine((val) => val !== null, {
+  npsScore: z.union([z.number().min(0).max(10), z.null()]).refine((val) => val !== null, {
     message: "Por favor, selecione uma nota"
   }),
   ratingFood: z.number().min(1, "Avaliacao obrigatoria"),
@@ -65,9 +62,15 @@ export default function PublicFeedback() {
   ].filter(Boolean).length;
 
   const onSubmit = (data: FeedbackFormInput) => {
-    if (data.npsScore === null) return;
+    console.log("[DEBUG] Form submitted with data:", data);
+    console.log("[DEBUG] Form errors:", errors);
     
-    submitFeedback.mutate({
+    if (data.npsScore === null) {
+      console.log("[DEBUG] npsScore is null, returning");
+      return;
+    }
+    
+    const payload = {
       userId: data.userId,
       npsScore: data.npsScore,
       ratingFood: data.ratingFood,
@@ -75,8 +78,18 @@ export default function PublicFeedback() {
       ratingWaitTime: data.ratingWaitTime,
       ratingAmbiance: data.ratingAmbiance,
       comment: data.comment || undefined,
-    }, {
-      onSuccess: () => setIsSubmitted(true)
+    };
+    
+    console.log("[DEBUG] Sending payload:", payload);
+    
+    submitFeedback.mutate(payload, {
+      onSuccess: () => {
+        console.log("[DEBUG] Submission successful!");
+        setIsSubmitted(true);
+      },
+      onError: (error) => {
+        console.log("[DEBUG] Submission error:", error);
+      }
     });
   };
 
@@ -321,8 +334,15 @@ export default function PublicFeedback() {
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-white/0 pt-8">
         <div className="max-w-lg mx-auto">
           <button
-            type="submit"
-            onClick={handleSubmit(onSubmit)}
+            type="button"
+            onClick={() => {
+              console.log("[DEBUG] Button clicked!");
+              console.log("[DEBUG] Current form values:", watchedValues);
+              console.log("[DEBUG] Current errors:", errors);
+              handleSubmit(onSubmit, (errors) => {
+                console.log("[DEBUG] Validation errors:", errors);
+              })();
+            }}
             disabled={submitFeedback.isPending}
             data-testid="button-submit-feedback"
             className="w-full py-4 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-lg font-semibold rounded-2xl shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/30 active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
