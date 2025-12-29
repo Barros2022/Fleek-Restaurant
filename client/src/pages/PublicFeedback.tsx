@@ -32,6 +32,7 @@ export default function PublicFeedback() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("SUBMIT CALLED", { nps, food, service, waitTime, ambiance });
     setError("");
     
     if (nps === null) {
@@ -193,7 +194,7 @@ function StarRating({ label, value, onChange }: { label: string; value: number; 
           <button
             key={n}
             type="button"
-            onClick={() => onChange(n)}
+            onClick={() => { console.log("STAR CLICKED", label, n); onChange(n); }}
             className="p-1"
           >
             <Star
