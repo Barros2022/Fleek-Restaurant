@@ -63,109 +63,139 @@ export default function Dashboard() {
 
   const feedbackUrl = `${window.location.origin}/feedback/${user.id}`;
 
+  const generateQRCard = (canvas: HTMLCanvasElement): string => {
+    const exportCanvas = document.createElement("canvas");
+    const ctx = exportCanvas.getContext("2d", { alpha: false });
+    if (!ctx) return "";
+
+    const scale = 4;
+    const cardW = 420 * scale;
+    const cardH = 560 * scale;
+    const radius = 24 * scale;
+
+    exportCanvas.width = cardW;
+    exportCanvas.height = cardH;
+
+    // — Background branco total —
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, cardW, cardH);
+
+    // — Card com sombra simulada (borda cinza) —
+    ctx.fillStyle = "#F1F5F9";
+    ctx.beginPath();
+    ctx.roundRect(8, 8, cardW - 8, cardH - 8, radius);
+    ctx.fill();
+
+    // — Card branco principal —
+    ctx.fillStyle = "#FFFFFF";
+    ctx.beginPath();
+    ctx.roundRect(0, 0, cardW, cardH, radius);
+    ctx.fill();
+
+    // — Header teal —
+    const headerH = 145 * scale;
+    ctx.fillStyle = "#0d9488";
+    ctx.beginPath();
+    ctx.roundRect(0, 0, cardW, headerH, radius);
+    ctx.fill();
+    ctx.fillRect(0, headerH - radius, cardW, radius);
+
+    // — Estrela (logo Fleek) no header —
+    const starCX = cardW / 2;
+    const starCY = 38 * scale;
+    const starOuter = 18 * scale;
+    const starInner = 7.5 * scale;
+    const starPoints = 5;
+    ctx.fillStyle = "#86efac";
+    ctx.beginPath();
+    for (let i = 0; i < starPoints * 2; i++) {
+      const angle = (i * Math.PI) / starPoints - Math.PI / 2;
+      const r = i % 2 === 0 ? starOuter : starInner;
+      const x = starCX + r * Math.cos(angle);
+      const y = starCY + r * Math.sin(angle);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // — "Fleek" no header —
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = `bold ${22 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText("Fleek", cardW / 2, 60 * scale);
+
+    // — Subtítulo no header —
+    ctx.fillStyle = "#ccfbf1";
+    ctx.font = `${15 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.fillText("Avalie sua experiência", cardW / 2, 88 * scale);
+
+    // — Linha divisória branca suave —
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = 1.5 * scale;
+    ctx.beginPath();
+    ctx.moveTo(40 * scale, 118 * scale);
+    ctx.lineTo(cardW - 40 * scale, 118 * scale);
+    ctx.stroke();
+
+    // — QR Code area branca com sombra —
+    const qrPad = 16 * scale;
+    const qrSize = canvas.width * scale * 0.72;
+    const qrX = (cardW - qrSize) / 2;
+    const qrY = 158 * scale;
+
+    ctx.fillStyle = "#F8FAFC";
+    ctx.beginPath();
+    ctx.roundRect(qrX - qrPad, qrY - qrPad, qrSize + qrPad * 2, qrSize + qrPad * 2, 12 * scale);
+    ctx.fill();
+
+    ctx.strokeStyle = "#E2E8F0";
+    ctx.lineWidth = 1.5 * scale;
+    ctx.beginPath();
+    ctx.roundRect(qrX - qrPad, qrY - qrPad, qrSize + qrPad * 2, qrSize + qrPad * 2, 12 * scale);
+    ctx.stroke();
+
+    // — QR Code —
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(canvas, qrX, qrY, qrSize, qrSize);
+
+    // — Nome do restaurante —
+    const nameY = qrY + qrSize + qrPad + 28 * scale;
+    ctx.fillStyle = "#0F172A";
+    ctx.font = `bold ${26 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    const maxNameW = cardW - 80 * scale;
+    let nameText = user.businessName;
+    while (ctx.measureText(nameText).width > maxNameW && nameText.length > 4) {
+      nameText = nameText.slice(0, -1);
+    }
+    if (nameText !== user.businessName) nameText += "…";
+    ctx.fillText(nameText, cardW / 2, nameY);
+
+    // — Instrução —
+    ctx.fillStyle = "#64748B";
+    ctx.font = `${14 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.fillText("Escaneie o código para avaliar", cardW / 2, nameY + 38 * scale);
+
+    // — Rodapé —
+    ctx.fillStyle = "#CBD5E1";
+    ctx.font = `${11 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.fillText("powered by Fleek", cardW / 2, cardH - 22 * scale);
+
+    return exportCanvas.toDataURL("image/png", 1.0);
+  };
+
   const downloadQR = () => {
     const canvas = qrRef.current?.querySelector("canvas");
-    if (canvas) {
-      // Create a high-resolution off-screen canvas for export
-      const exportCanvas = document.createElement("canvas");
-      const ctx = exportCanvas.getContext("2d", { alpha: false });
-      if (!ctx) return;
-
-      // Configuration for high-resolution print - no external padding
-      const scale = 4;
-      const borderWidth = 6 * scale;
-      const innerPadding = 40 * scale;
-      const qrOriginalSize = canvas.width;
-      const qrDisplaySize = qrOriginalSize * scale;
-      const cornerRadius = 16 * scale;
-      
-      // Card dimensions (no external margin)
-      const width = qrDisplaySize + (innerPadding * 2) + (borderWidth * 2);
-      const height = qrDisplaySize + (innerPadding * 2) + (180 * scale) + (borderWidth * 2);
-
-      exportCanvas.width = width;
-      exportCanvas.height = height;
-
-      // 1. Moldura externa (borda escura)
-      ctx.fillStyle = "#1E293B"; // slate-800
-      ctx.beginPath();
-      ctx.roundRect(0, 0, width, height, cornerRadius);
-      ctx.fill();
-
-      // 2. Área interna branca
-      ctx.fillStyle = "#FFFFFF";
-      ctx.beginPath();
-      ctx.roundRect(borderWidth, borderWidth, width - (borderWidth * 2), height - (borderWidth * 2), cornerRadius - 4);
-      ctx.fill();
-
-      // 3. Título: "Avalie nossa experiência"
-      ctx.fillStyle = "#0F172A";
-      ctx.font = `bold ${24 * scale}px system-ui, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "top";
-      ctx.fillText("Avalie nossa experiência", width / 2, borderWidth + (30 * scale));
-
-      // 4. Linha decorativa superior
-      const lineY = borderWidth + (70 * scale);
-      ctx.strokeStyle = "#E2E8F0";
-      ctx.lineWidth = 2 * scale;
-      ctx.beginPath();
-      ctx.moveTo(borderWidth + innerPadding, lineY);
-      ctx.lineTo(width - borderWidth - innerPadding, lineY);
-      ctx.stroke();
-
-      // 5. QR Code centralizado
-      const qrX = (width - qrDisplaySize) / 2;
-      const qrY = borderWidth + (90 * scale);
-      
-      // Moldura sutil do QR
-      const qrFramePadding = 12 * scale;
-      ctx.fillStyle = "#F8FAFC"; // slate-50
-      ctx.beginPath();
-      ctx.roundRect(
-        qrX - qrFramePadding, 
-        qrY - qrFramePadding, 
-        qrDisplaySize + (qrFramePadding * 2), 
-        qrDisplaySize + (qrFramePadding * 2), 
-        8 * scale
-      );
-      ctx.fill();
-
-      // QR Code
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(canvas, qrX, qrY, qrDisplaySize, qrDisplaySize);
-
-      // 6. Nome do restaurante
-      ctx.fillStyle = "#0F172A";
-      ctx.font = `bold ${28 * scale}px system-ui, sans-serif`;
-      ctx.fillText(user.businessName, width / 2, qrY + qrDisplaySize + (35 * scale));
-
-      // 7. Linha decorativa inferior
-      const bottomLineY = qrY + qrDisplaySize + (80 * scale);
-      ctx.strokeStyle = "#E2E8F0";
-      ctx.lineWidth = 2 * scale;
-      ctx.beginPath();
-      ctx.moveTo(borderWidth + innerPadding, bottomLineY);
-      ctx.lineTo(width - borderWidth - innerPadding, bottomLineY);
-      ctx.stroke();
-
-      // 8. Texto auxiliar
-      ctx.fillStyle = "#64748B";
-      ctx.font = `${16 * scale}px system-ui, sans-serif`;
-      ctx.fillText("Escaneie para deixar seu feedback", width / 2, bottomLineY + (20 * scale));
-
-      // Export
-      const url = exportCanvas.toDataURL("image/png", 1.0);
-      const a = document.createElement("a");
-      a.download = `QR-Code-${user.businessName.replace(/\s+/g, '-').toLowerCase()}.png`;
-      a.href = url;
-      a.click();
-      
-      toast({ 
-        title: "Download concluído", 
-        description: "Cartão pronto para impressão direta." 
-      });
-    }
+    if (!canvas) return;
+    const url = generateQRCard(canvas);
+    if (!url) return;
+    const a = document.createElement("a");
+    a.download = `QR-Fleek-${user.businessName.replace(/\s+/g, '-').toLowerCase()}.png`;
+    a.href = url;
+    a.click();
+    toast({ title: "Download concluído", description: "Cartão pronto para impressão." });
   };
 
   const copyLink = () => {
@@ -175,143 +205,81 @@ export default function Dashboard() {
 
   const printQR = () => {
     const canvas = qrRef.current?.querySelector("canvas");
-    if (canvas) {
-      // Generate the same high-res image as download
-      const exportCanvas = document.createElement("canvas");
-      const ctx = exportCanvas.getContext("2d", { alpha: false });
-      if (!ctx) return;
+    if (!canvas) return;
+    const imageUrl = generateQRCard(canvas);
+    if (!imageUrl) return;
 
-      const scale = 4;
-      const borderWidth = 6 * scale;
-      const innerPadding = 40 * scale;
-      const qrOriginalSize = canvas.width;
-      const qrDisplaySize = qrOriginalSize * scale;
-      const cornerRadius = 16 * scale;
-      
-      const width = qrDisplaySize + (innerPadding * 2) + (borderWidth * 2);
-      const height = qrDisplaySize + (innerPadding * 2) + (180 * scale) + (borderWidth * 2);
-
-      exportCanvas.width = width;
-      exportCanvas.height = height;
-
-      ctx.fillStyle = "#1E293B";
-      ctx.beginPath();
-      ctx.roundRect(0, 0, width, height, cornerRadius);
-      ctx.fill();
-
-      ctx.fillStyle = "#FFFFFF";
-      ctx.beginPath();
-      ctx.roundRect(borderWidth, borderWidth, width - (borderWidth * 2), height - (borderWidth * 2), cornerRadius - 4);
-      ctx.fill();
-
-      ctx.fillStyle = "#0F172A";
-      ctx.font = `bold ${24 * scale}px system-ui, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "top";
-      ctx.fillText("Avalie nossa experiência", width / 2, borderWidth + (30 * scale));
-
-      const lineY = borderWidth + (70 * scale);
-      ctx.strokeStyle = "#E2E8F0";
-      ctx.lineWidth = 2 * scale;
-      ctx.beginPath();
-      ctx.moveTo(borderWidth + innerPadding, lineY);
-      ctx.lineTo(width - borderWidth - innerPadding, lineY);
-      ctx.stroke();
-
-      const qrX = (width - qrDisplaySize) / 2;
-      const qrY = borderWidth + (90 * scale);
-      
-      const qrFramePadding = 12 * scale;
-      ctx.fillStyle = "#F8FAFC";
-      ctx.beginPath();
-      ctx.roundRect(qrX - qrFramePadding, qrY - qrFramePadding, qrDisplaySize + (qrFramePadding * 2), qrDisplaySize + (qrFramePadding * 2), 8 * scale);
-      ctx.fill();
-
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(canvas, qrX, qrY, qrDisplaySize, qrDisplaySize);
-
-      ctx.fillStyle = "#0F172A";
-      ctx.font = `bold ${28 * scale}px system-ui, sans-serif`;
-      ctx.fillText(user.businessName, width / 2, qrY + qrDisplaySize + (35 * scale));
-
-      const bottomLineY = qrY + qrDisplaySize + (80 * scale);
-      ctx.strokeStyle = "#E2E8F0";
-      ctx.lineWidth = 2 * scale;
-      ctx.beginPath();
-      ctx.moveTo(borderWidth + innerPadding, bottomLineY);
-      ctx.lineTo(width - borderWidth - innerPadding, bottomLineY);
-      ctx.stroke();
-
-      ctx.fillStyle = "#64748B";
-      ctx.font = `${16 * scale}px system-ui, sans-serif`;
-      ctx.fillText("Escaneie para deixar seu feedback", width / 2, bottomLineY + (20 * scale));
-
-      const imageUrl = exportCanvas.toDataURL("image/png", 1.0);
-      
-      // Open print window with properly formatted content
-      const printWindow = window.open("", "_blank");
-      if (printWindow) {
-        printWindow.document.write(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>QR Code - ${user.businessName}</title>
-            <style>
-              * { margin: 0; padding: 0; box-sizing: border-box; }
-              @page { 
-                size: auto; 
-                margin: 15mm; 
-              }
-              body {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-                background: white;
-                font-family: system-ui, sans-serif;
-              }
-              .container {
-                text-align: center;
-              }
-              img {
-                width: 280px;
-                height: auto;
-              }
-              @media print {
-                body { 
-                  min-height: auto;
-                  background: white;
-                }
-                img {
-                  width: 280px;
-                  height: auto;
-                  page-break-inside: avoid;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="container">
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>QR Code - ${user.businessName}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            @page { size: A4; margin: 0; }
+            html, body {
+              width: 210mm;
+              height: 297mm;
+              background: #f8fafc;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              font-family: system-ui, -apple-system, sans-serif;
+            }
+            .page {
+              width: 210mm;
+              height: 297mm;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+              gap: 0;
+              background: #f8fafc;
+            }
+            .card-wrap {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              filter: drop-shadow(0 8px 24px rgba(0,0,0,0.12));
+            }
+            img {
+              width: 280px;
+              height: auto;
+              display: block;
+              border-radius: 24px;
+            }
+            .hint {
+              margin-top: 20px;
+              font-size: 11px;
+              color: #94a3b8;
+              letter-spacing: 0.04em;
+            }
+            @media print {
+              html, body { background: #f8fafc; }
+              .hint { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="page">
+            <div class="card-wrap">
               <img id="qr-image" src="${imageUrl}" alt="QR Code ${user.businessName}" />
             </div>
-            <script>
-              var img = document.getElementById('qr-image');
-              img.onload = function() {
-                window.print();
-              };
-              img.onerror = function() {
-                alert('Erro ao carregar imagem. Tente novamente.');
-              };
-              // Fallback if image is already cached
-              if (img.complete) {
-                window.print();
-              }
-            </script>
-          </body>
-          </html>
-        `);
-        printWindow.document.close();
-      }
+            <p class="hint">Imprima e coloque nas mesas do seu restaurante</p>
+          </div>
+          <script>
+            var img = document.getElementById('qr-image');
+            function doPrint() { window.print(); }
+            img.onload = doPrint;
+            if (img.complete) doPrint();
+            img.onerror = function() { alert('Erro ao carregar imagem. Tente novamente.'); };
+          </script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
     }
   };
 
