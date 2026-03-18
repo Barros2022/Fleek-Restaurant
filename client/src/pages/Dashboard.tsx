@@ -46,6 +46,18 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [headerColor, setHeaderColor] = useState("#0d9488");
+
+  const colorOptions = [
+    { value: "#0d9488", label: "Verde" },
+    { value: "#1e40af", label: "Azul" },
+    { value: "#7c3aed", label: "Roxo" },
+    { value: "#be123c", label: "Vermelho" },
+    { value: "#c2410c", label: "Laranja" },
+    { value: "#334155", label: "Cinza" },
+    { value: "#166534", label: "Floresta" },
+    { value: "#1e1b4b", label: "Índigo" },
+  ];
 
   useEffect(() => {
     if (!isAuthLoading && !user) {
@@ -63,15 +75,14 @@ export default function Dashboard() {
 
   const feedbackUrl = `${window.location.origin}/feedback/${user.id}`;
 
-  const generateQRCard = (canvas: HTMLCanvasElement): string => {
+  const generateQRCard = (canvas: HTMLCanvasElement, color: string): string => {
     const exportCanvas = document.createElement("canvas");
     const ctx = exportCanvas.getContext("2d", { alpha: false });
     if (!ctx) return "";
 
-    // Card size: ~9cm x 12cm at 300dpi — compact for tables
     const scale = 4;
     const cardW = 255 * scale;
-    const cardH = 320 * scale;
+    const cardH = 310 * scale;
     const radius = 14 * scale;
 
     exportCanvas.width = cardW;
@@ -87,49 +98,42 @@ export default function Dashboard() {
     ctx.roundRect(0, 0, cardW, cardH, radius);
     ctx.fill();
 
-    // — Header teal —
-    const headerH = 80 * scale;
-    ctx.fillStyle = "#0d9488";
+    // — Header colorido (cobre topo arredondado) —
+    const headerH = 90 * scale;
+    ctx.fillStyle = color;
     ctx.beginPath();
     ctx.roundRect(0, 0, cardW, headerH, radius);
     ctx.fill();
     ctx.fillRect(0, headerH - radius, cardW, radius);
 
-    // — Estrela no header (centralizada à esquerda do texto) —
-    const starCX = cardW / 2 - 38 * scale;
-    const starCY = 40 * scale;
-    const starOuter = 10 * scale;
-    const starInner = 4 * scale;
-    ctx.fillStyle = "#86efac";
-    ctx.beginPath();
-    for (let i = 0; i < 10; i++) {
-      const angle = (i * Math.PI) / 5 - Math.PI / 2;
-      const r = i % 2 === 0 ? starOuter : starInner;
-      const x = starCX + r * Math.cos(angle);
-      const y = starCY + r * Math.sin(angle);
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.fill();
-
-    // — "Fleek" no header —
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = `bold ${18 * scale}px system-ui, -apple-system, sans-serif`;
-    ctx.textAlign = "left";
+    // — Nome do estabelecimento no header (centralizado, grande) —
+    ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("Fleek", cardW / 2 - 22 * scale, 40 * scale);
+    const maxNameW = cardW - 30 * scale;
+    let nameFontSize = 19 * scale;
+    ctx.font = `bold ${nameFontSize}px system-ui, -apple-system, sans-serif`;
+    let nameText = user.businessName;
+    while (ctx.measureText(nameText).width > maxNameW && nameFontSize > 10 * scale) {
+      nameFontSize -= 1 * scale;
+      ctx.font = `bold ${nameFontSize}px system-ui, -apple-system, sans-serif`;
+    }
+    while (ctx.measureText(nameText).width > maxNameW && nameText.length > 4) {
+      nameText = nameText.slice(0, -1);
+    }
+    if (nameText !== user.businessName) nameText += "…";
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillText(nameText, cardW / 2, 42 * scale);
 
     // — Subtítulo no header —
-    ctx.fillStyle = "#ccfbf1";
-    ctx.font = `${10 * scale}px system-ui, -apple-system, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.fillText("Avalie sua experiência", cardW / 2, 62 * scale);
+    ctx.fillStyle = "rgba(255,255,255,0.70)";
+    ctx.font = `${9.5 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.fillText("Avalie sua experiência", cardW / 2, 68 * scale);
 
     // — QR Code centralizado —
     const qrPad = 10 * scale;
-    const qrSize = 148 * scale;
+    const qrSize = 152 * scale;
     const qrX = (cardW - qrSize) / 2;
-    const qrY = 88 * scale;
+    const qrY = 98 * scale;
 
     ctx.fillStyle = "#F8FAFC";
     ctx.strokeStyle = "#E2E8F0";
@@ -142,29 +146,18 @@ export default function Dashboard() {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(canvas, qrX, qrY, qrSize, qrSize);
 
-    // — Nome do restaurante —
-    const nameY = qrY + qrSize + qrPad + 18 * scale;
-    ctx.fillStyle = "#0F172A";
-    ctx.font = `bold ${16 * scale}px system-ui, -apple-system, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    const maxNameW = cardW - 40 * scale;
-    let nameText = user.businessName;
-    while (ctx.measureText(nameText).width > maxNameW && nameText.length > 4) {
-      nameText = nameText.slice(0, -1);
-    }
-    if (nameText !== user.businessName) nameText += "…";
-    ctx.fillText(nameText, cardW / 2, nameY);
-
-    // — Instrução —
+    // — Instrução abaixo do QR —
+    const instrY = qrY + qrSize + qrPad + 16 * scale;
     ctx.fillStyle = "#64748B";
     ctx.font = `${9 * scale}px system-ui, -apple-system, sans-serif`;
-    ctx.fillText("Escaneie para avaliar", cardW / 2, nameY + 24 * scale);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText("Escaneie para avaliar", cardW / 2, instrY);
 
     // — Rodapé —
     ctx.fillStyle = "#CBD5E1";
-    ctx.font = `${7.5 * scale}px system-ui, -apple-system, sans-serif`;
-    ctx.fillText("powered by Fleek", cardW / 2, cardH - 12 * scale);
+    ctx.font = `${7 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.fillText("powered by Fleek", cardW / 2, cardH - 11 * scale);
 
     return exportCanvas.toDataURL("image/png", 1.0);
   };
@@ -172,10 +165,10 @@ export default function Dashboard() {
   const downloadQR = () => {
     const canvas = qrRef.current?.querySelector("canvas");
     if (!canvas) return;
-    const url = generateQRCard(canvas);
+    const url = generateQRCard(canvas, headerColor);
     if (!url) return;
     const a = document.createElement("a");
-    a.download = `QR-Fleek-${user.businessName.replace(/\s+/g, '-').toLowerCase()}.png`;
+    a.download = `QR-${user.businessName.replace(/\s+/g, '-').toLowerCase()}.png`;
     a.href = url;
     a.click();
     toast({ title: "Download concluído", description: "Cartão pronto para impressão." });
@@ -189,7 +182,7 @@ export default function Dashboard() {
   const printQR = () => {
     const canvas = qrRef.current?.querySelector("canvas");
     if (!canvas) return;
-    const imageUrl = generateQRCard(canvas);
+    const imageUrl = generateQRCard(canvas, headerColor);
     if (!imageUrl) return;
 
     const printWindow = window.open("", "_blank");
@@ -510,18 +503,50 @@ export default function Dashboard() {
             <div className="space-y-6">
               <div className="bg-white rounded-2xl p-6 border border-border shadow-sm sticky top-24">
                 <h2 className="text-lg font-bold font-display mb-2 text-slate-900">Seu QR Code</h2>
-                <p className="text-sm text-muted-foreground mb-6">
+                <p className="text-sm text-muted-foreground mb-4">
                   Imprima e coloque nas mesas ou no balcão.
                 </p>
+
+                {/* Preview do cabeçalho colorido */}
+                <div
+                  className="rounded-xl px-4 py-3 mb-1 text-center"
+                  style={{ backgroundColor: headerColor }}
+                >
+                  <p className="text-white font-bold text-sm truncate">{user.businessName}</p>
+                  <p className="text-white/70 text-xs mt-0.5">Avalie sua experiência</p>
+                </div>
                 
-                <div className="bg-white border-2 border-slate-900 rounded-xl p-6 mb-6 flex justify-center shadow-lg shadow-slate-200/50" ref={qrRef}>
+                <div className="bg-white border-2 border-slate-900 rounded-b-xl rounded-t-none px-6 pb-6 pt-4 mb-4 flex justify-center shadow-lg shadow-slate-200/50" ref={qrRef}>
                   <QRCodeCanvas 
                     value={feedbackUrl} 
-                    size={200} 
+                    size={185} 
                     level="H"
                     includeMargin={false}
                     fgColor="#0f172a"
                   />
+                </div>
+
+                {/* Seletor de cores */}
+                <div className="mb-4">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Cor do cabeçalho</p>
+                  <div className="flex flex-wrap gap-2">
+                    {colorOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        title={opt.label}
+                        onClick={() => setHeaderColor(opt.value)}
+                        className="w-7 h-7 rounded-full transition-all focus:outline-none"
+                        style={{
+                          backgroundColor: opt.value,
+                          boxShadow: headerColor === opt.value
+                            ? `0 0 0 2px white, 0 0 0 4px ${opt.value}`
+                            : "none",
+                          transform: headerColor === opt.value ? "scale(1.15)" : "scale(1)",
+                        }}
+                        data-testid={`button-color-${opt.label.toLowerCase()}`}
+                      />
+                    ))}
+                  </div>
                 </div>
 
                 <div className="space-y-3">
